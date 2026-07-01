@@ -27,6 +27,14 @@ import sys
 from collections import defaultdict
 import openpyxl
 
+def find_data_file(script_dir, candidates):
+    """複数の候補ファイル名から存在するものを返す（日本語ファイル名の揺れ対応）"""
+    for name in candidates:
+        p = os.path.join(script_dir, name)
+        if os.path.exists(p):
+            return p
+    return None
+
 # ── 離反期間バケット ──────────────────────────
 SEG_ORDER = ['1ヶ月未満','1〜2ヶ月','2〜3ヶ月','3〜6ヶ月','半年〜1年','1〜3年','3年以上']
 
@@ -670,8 +678,8 @@ def generate_report_core(
 
     # 来店結果報告データ
     visit_rate_data = None
-    rate_file = os.path.join(script_dir, '来店結果報告_平滑化版.xlsx')
-    if os.path.exists(rate_file):
+    rate_file = find_data_file(script_dir, ['来店結果報告_平滑化版.xlsx', '報告結果_平滑化版.xlsx', 'visit_rates.xlsx'])
+    if rate_file:
         visit_rate_data = load_visit_rates(rate_file)
 
     # XLSX（KO形式）
@@ -682,9 +690,9 @@ def generate_report_core(
         html = inject_age_segments(html, age_segments)
 
     # 設置台数・キャンペーン種別
-    target_file = os.path.join(script_dir, 'SMSターゲット.xlsx')
-    member_file = os.path.join(script_dir, '会員データ調査_想定台数100刻み_算出済.xlsx')
-    campaign_targets = load_campaign_targets(target_file) if os.path.exists(target_file) else []
+    target_file = find_data_file(script_dir, ['SMSターゲット.xlsx', 'SMS対象.xlsx', 'sms_targets.xlsx'])
+    member_file = find_data_file(script_dir, ['会員データ調査_想定台数100刻み_算出済.xlsx', '会員データ調査_想定人数100刻み_算出済.xlsx', 'member_data.xlsx'])
+    campaign_targets = load_campaign_targets(target_file) if target_file else []
 
     max_segment   = None
     birthday_mode = False
@@ -784,12 +792,12 @@ def main():
     # ── XLSX（KO形式）処理
     # 来店結果報告データの自動読み込み
     visit_rate_data = None
-    rate_file = os.path.join(script_dir, '来店結果報告_平滑化版.xlsx')
-    if os.path.exists(rate_file):
+    rate_file = find_data_file(script_dir, ['来店結果報告_平滑化版.xlsx', '報告結果_平滑化版.xlsx', 'visit_rates.xlsx'])
+    if rate_file:
         visit_rate_data = load_visit_rates(rate_file)
         print(f'📈 来店結果報告データ読み込み済み: {len(visit_rate_data)}日分')
     else:
-        print(f'⚠️  来店結果報告_平滑化版.xlsx が見つかりません。固定値で代替します。')
+        print(f'⚠️  来店結果報告ファイルが見つかりません。固定値で代替します。')
 
     if args.xlsx:
         print(f'📊 KO XLSXを読み込み中: {args.xlsx}')
@@ -801,9 +809,9 @@ def main():
         html = inject_age_segments(html, age_segments)
 
     # ── 設置台数・キャンペーン種別（インタラクティブ入力 or CLI引数）
-    target_file  = os.path.join(script_dir, 'SMSターゲット.xlsx')
-    member_file  = os.path.join(script_dir, '会員データ調査_想定台数100刻み_算出済.xlsx')
-    campaign_targets = load_campaign_targets(target_file) if os.path.exists(target_file) else []
+    target_file  = find_data_file(script_dir, ['SMSターゲット.xlsx', 'SMS対象.xlsx', 'sms_targets.xlsx'])
+    member_file  = find_data_file(script_dir, ['会員データ調査_想定台数100刻み_算出済.xlsx', '会員データ調査_想定人数100刻み_算出済.xlsx', 'member_data.xlsx'])
+    campaign_targets = load_campaign_targets(target_file) if target_file else []
 
     if args.xlsx:
         # 設置台数：未指定ならプロンプト
@@ -852,8 +860,8 @@ def main():
         print(f'   → 未送信層シミュレーションデータを注入完了')
         if args.campaign_type:
             html = inject_campaign_meta(html, args.campaign_type, max_segment or '')
-    elif args.machines and not os.path.exists(member_file):
-        print(f'⚠️  会員データ調査ファイルが見つかりません: {member_file}')
+    elif args.machines and not member_file:
+        print(f'⚠️  会員データ調査ファイルが見つかりません')
 
     # ── Clarity CSV処理（Attention + Scroll 両対応）
     reach_map = {}

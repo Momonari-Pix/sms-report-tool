@@ -20,7 +20,16 @@ st.set_page_config(
 )
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TARGET_FILE = os.path.join(SCRIPT_DIR, 'SMSターゲット.xlsx')
+
+# ファイル名の揺れに対応（日本語ファイル名はOS/環境で変化することがある）
+def find_file(candidates):
+    for name in candidates:
+        p = os.path.join(SCRIPT_DIR, name)
+        if os.path.exists(p):
+            return p
+    return None
+
+TARGET_FILE = find_file(['SMSターゲット.xlsx', 'SMS対象.xlsx', 'SMS_targets.xlsx'])
 
 # デバッグ：ファイル一覧表示（問題解決後に削除）
 with st.expander('🔍 デバッグ情報（確認後に削除）'):
