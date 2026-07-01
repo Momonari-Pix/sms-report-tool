@@ -8,6 +8,7 @@ SMS分析レポート Web UI
 """
 
 import os
+import glob
 import tempfile
 import streamlit as st
 from generate_report import generate_report_core, load_campaign_targets
@@ -21,24 +22,20 @@ st.set_page_config(
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# ファイル名の揺れに対応（日本語ファイル名はOS/環境で変化することがある）
-def find_file(candidates):
-    for name in candidates:
+# SMSターゲットファイルをglobで自動検出（ファイル名の揺れに対応）
+def find_target_file():
+    # 「SMS」を含む xlsx を探す
+    hits = glob.glob(os.path.join(SCRIPT_DIR, 'SMS*.xlsx'))
+    if hits:
+        return hits[0]
+    # フォールバック：候補名リスト
+    for name in ['SMSターゲット.xlsx', 'SMS対象.xlsx', 'sms_targets.xlsx']:
         p = os.path.join(SCRIPT_DIR, name)
         if os.path.exists(p):
             return p
     return None
 
-TARGET_FILE = find_file(['SMSターゲット.xlsx', 'SMS対象.xlsx', 'SMS_targets.xlsx'])
-
-# デバッグ：ファイル一覧表示（問題解決後に削除）
-with st.expander('🔍 デバッグ情報（確認後に削除）'):
-    st.write('SCRIPT_DIR:', SCRIPT_DIR)
-    st.write('TARGET_FILE:', TARGET_FILE)
-    try:
-        st.write('フォルダ内ファイル:', os.listdir(SCRIPT_DIR))
-    except Exception as e:
-        st.write('listdir error:', e)
+TARGET_FILE = find_target_file()
 
 # ── スタイル ──────────────────────────────────
 st.markdown("""
