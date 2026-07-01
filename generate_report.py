@@ -27,8 +27,15 @@ import sys
 from collections import defaultdict
 import openpyxl
 
-def find_data_file(script_dir, candidates):
+def find_data_file(script_dir, candidates, glob_pattern=None):
     """複数の候補ファイル名から存在するものを返す（日本語ファイル名の揺れ対応）"""
+    import glob as _glob
+    # glob で先に探す
+    if glob_pattern:
+        hits = _glob.glob(os.path.join(script_dir, glob_pattern))
+        if hits:
+            return hits[0]
+    # 候補名リストで探す
     for name in candidates:
         p = os.path.join(script_dir, name)
         if os.path.exists(p):
@@ -678,7 +685,7 @@ def generate_report_core(
 
     # 来店結果報告データ
     visit_rate_data = None
-    rate_file = find_data_file(script_dir, ['来店結果報告_平滑化版.xlsx', '報告結果_平滑化版.xlsx', 'visit_rates.xlsx'])
+    rate_file = find_data_file(script_dir, ['来店結果報告_平滑化版.xlsx', '報告結果_平滑化版.xlsx', 'visit_rates.xlsx'], glob_pattern='*報告*平滑*.xlsx')
     if rate_file:
         visit_rate_data = load_visit_rates(rate_file)
 
@@ -691,7 +698,7 @@ def generate_report_core(
 
     # 設置台数・キャンペーン種別
     target_file = find_data_file(script_dir, ['SMSターゲット.xlsx', 'SMS対象.xlsx', 'sms_targets.xlsx'])
-    member_file = find_data_file(script_dir, ['会員データ調査_想定台数100刻み_算出済.xlsx', '会員データ調査_想定人数100刻み_算出済.xlsx', 'member_data.xlsx'])
+    member_file = find_data_file(script_dir, ['会員データ調査_想定台数100刻み_算出済.xlsx', '会員データ調査_想定人数100刻み_算出済.xlsx', 'member_data.xlsx'], glob_pattern='会員データ調査*.xlsx')
     campaign_targets = load_campaign_targets(target_file) if target_file else []
 
     max_segment   = None
@@ -792,7 +799,7 @@ def main():
     # ── XLSX（KO形式）処理
     # 来店結果報告データの自動読み込み
     visit_rate_data = None
-    rate_file = find_data_file(script_dir, ['来店結果報告_平滑化版.xlsx', '報告結果_平滑化版.xlsx', 'visit_rates.xlsx'])
+    rate_file = find_data_file(script_dir, ['来店結果報告_平滑化版.xlsx', '報告結果_平滑化版.xlsx', 'visit_rates.xlsx'], glob_pattern='*報告*平滑*.xlsx')
     if rate_file:
         visit_rate_data = load_visit_rates(rate_file)
         print(f'📈 来店結果報告データ読み込み済み: {len(visit_rate_data)}日分')
