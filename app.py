@@ -20,6 +20,26 @@ st.set_page_config(
     layout='centered',
 )
 
+# ── パスワード認証 ────────────────────────────
+def check_password():
+    correct = st.secrets.get('app_password', '')
+    if not correct:
+        st.error('管理者設定が必要です（Secrets未設定）')
+        st.stop()
+    if st.session_state.get('authenticated'):
+        return
+    st.title('🔐 ログイン')
+    pw = st.text_input('パスワード', type='password')
+    if st.button('ログイン'):
+        if pw == correct:
+            st.session_state['authenticated'] = True
+            st.rerun()
+        else:
+            st.error('パスワードが違います')
+    st.stop()
+
+check_password()
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # SMSターゲットファイルをglobで自動検出（ファイル名の揺れに対応）
