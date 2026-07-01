@@ -175,11 +175,15 @@ if generate_btn and xlsx_file is not None:
                     script_dir         = SCRIPT_DIR,
                 )
 
-            # 出力ファイル名を sendId ベースで決定
+            # 出力ファイル名を 店名_ID.html 形式で決定
             import re
-            send_id_match = re.search(r'sendId:\s*[\'"]?(\d+)', html)
-            send_id = send_id_match.group(1) if send_id_match else 'output'
-            filename = f'report_{send_id}.html'
+            send_id_match = re.search(r'sendId:\s*[\'"](\d+)[\'"]', html)
+            store_match   = re.search(r'store:\s*[\'"]([^\'"]+)[\'"]', html)
+            send_id   = send_id_match.group(1) if send_id_match else 'output'
+            store_raw = store_match.group(1) if store_match else ''
+            # ファイル名に使えない文字を除去
+            store_safe = re.sub(r'[\\/:*?"<>|\s]', '_', store_raw)
+            filename = f'{store_safe}_{send_id}.html' if store_safe else f'report_{send_id}.html'
 
             st.success(f'✅ レポート生成完了！（{len(html) // 1024} KB）')
 
