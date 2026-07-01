@@ -22,6 +22,16 @@ st.set_page_config(
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TARGET_FILE = os.path.join(SCRIPT_DIR, 'SMSターゲット.xlsx')
 
+# デバッグ：ファイル一覧表示（問題解決後に削除）
+with st.expander('🔍 デバッグ情報（確認後に削除）'):
+    st.write('SCRIPT_DIR:', SCRIPT_DIR)
+    st.write('TARGET_FILE:', TARGET_FILE)
+    st.write('ファイル存在:', os.path.exists(TARGET_FILE))
+    try:
+        st.write('フォルダ内ファイル:', os.listdir(SCRIPT_DIR))
+    except Exception as e:
+        st.write('listdir error:', e)
+
 # ── スタイル ──────────────────────────────────
 st.markdown("""
 <style>
