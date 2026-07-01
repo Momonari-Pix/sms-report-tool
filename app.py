@@ -35,7 +35,6 @@ TARGET_FILE = find_file(['SMSターゲット.xlsx', 'SMS対象.xlsx', 'SMS_targe
 with st.expander('🔍 デバッグ情報（確認後に削除）'):
     st.write('SCRIPT_DIR:', SCRIPT_DIR)
     st.write('TARGET_FILE:', TARGET_FILE)
-    st.write('ファイル存在:', os.path.exists(TARGET_FILE))
     try:
         st.write('フォルダ内ファイル:', os.listdir(SCRIPT_DIR))
     except Exception as e:
