@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+SMS分析レポート Web UI
+=======================
+起動方法:
+  streamlit run app.py
+"""
+
+import os
+import tempfile
+import streamlit as st
+from generate_report import generate_report_core, load_campaign_targets
+
+# ── ページ設定 ────────────────────────────────
+st.set_page_config(
+    page_title='SMS分析レポート 生成ツール',
+    page_icon='📊',
+    layout='centered',
+)
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+TARGET_FILE = os.path.join(SCRIPT_DIR, 'SMSターゲット.xlsx')
+
+# ── スタイル ──────────────────────────────────
+st.markdown("""
+<style>
+  .block-container { max-width: 740px; padding-top: 2rem; }
+  .stButton > button { width: 100%; height: 3rem; font-size: 1rem; font-weight: 700; }
+  .section-title { font-size: 0.85rem; font-weight: 700; color: #64748b;
+                   text-transform: uppercase; letter-spacing: .05em; margin: 1.5rem 0 .5rem; }
+</style>
+""", unsafe_allow_html=True)
+
+# ── タイトル ──────────────────────────────────
+st.title('📊 SMS分析レポート 生成ツール')
+st.caption('必要なファイルをアップロードして「レポート生成」を押してください。')
+st.divider()
+
+# ── キャンペーンタイプ一覧を取得 ───────────────
+campaign_targets = []
+if os.path.exists(TARGET_FILE):
+    campaign_targets = load_campaign_targets(TARGET_FILE)
+campaign_names = [ct['name'] for ct in campaign_targets]
+
+# ════════════════════════════════════════════
+# STEP 1 : 必須ファイル
+# ════════════════════════════════════════════
+st.markdown('<div class="section-title">STEP 1 ─ 必須ファイル</div>', unsafe_allow_html=True)
+
+xlsx_file = st.file_uploader(
+    'KO XLSX（送信結果）',
+    type=['xlsx'],
+    help='20260609_1200_45889_KO.xlsx のような KO フォーマットのファイル',
+)
+
+# ════════════════════════════════════════════
+# STEP 2 : 任意ファイル
+# ════════════════════════════════════════════
+st.markdown('<div class="section-title">STEP 2 ─ 任意ファイル（あれば精度が上がります）</div>', unsafe_allow_html=True)
+
+col1, col2 = st.columns(2)
+with col1:
+    scroll_file = st.file_uploader(
+        'Scroll CSV（到達率）',
+        type=['csv'],
+        help='Clarity の Scroll 深度 CSV',
+    )
+with col2:
+    attention_file = st.file_uploader(
+        'Attention CSV（注目割合）',
+        type=['csv'],
+        help='Clarity の Attention CSV',
+    )
+
+lp_image_file = st.file_uploader(
+    'LP画像（スクリーンショット）',
+    type=['jpg', 'jpeg', 'png', 'webp'],
+    help='スマホで撮影した LP のスクリーンショット等',
+)
+
+# ════════════════════════════════════════════
+# STEP 3 : 入力項目
+# ════════════════════════════════════════════
+st.markdown('<div class="section-title">STEP 3 ─ 店舗情報</div>', unsafe_allow_html=True)
+
+col_m, col_c = st.columns(2)
+with col_m:
+    machines = st.number_input(
+        '総台数',
+        min_value=1,
+        max_value=9999,
+        value=500,
+        step=1,
+        help='店舗の設置台数（パチンコ＋スロット合計）',
+    )
+with col_c:
+    campaign_type = st.selectbox(
+        'キャンペーンタイプ',
+        options=campaign_names if campaign_names else ['（SMSターゲット.xlsx が見つかりません）'],
+        help='SMSターゲット.xlsx に定義されているキャンペーン種別',
+    )
+
+# ════════════════════════════════════════════
+# 生成ボタン
+# ════════════════════════════════════════════
+st.divider()
+generate_btn = st.button('🚀 レポートを生成する', type='primary', disabled=(xlsx_file is None))
+
+if xlsx_file is None:
+    st.info('KO XLSX をアップロードするとレポートを生成できます。')
+
+# ── 生成処理 ──────────────────────────────────
+if generate_btn and xlsx_file is not None:
+    with st.spinner('レポートを生成中...'):
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                # ファイルを一時ディレクトリに保存
+                def save_upload(uploaded, suffix):
+                    if uploaded is None:
+                        return None
+                    path = os.path.join(tmpdir, f'upload{suffix}')
+                    with open(path, 'wb') as f:
+                        f.write(uploaded.read())
+                    uploaded.seek(0)  # 再読み込み可能にリセット
+                    return path
+
+                xlsx_path      = save_upload(xlsx_file,      '.xlsx')
+                scroll_path    = save_upload(scroll_file,    '_scroll.csv')
+                attention_path = save_upload(attention_file, '_attention.csv')
+                image_path     = save_upload(lp_image_file,  os.path.splitext(lp_image_file.name)[1] if lp_image_file else '.jpg')
+
+                html = generate_report_core(
+                    xlsx_path          = xlsx_path,
+                    scroll_csv_path    = scroll_path,
+                    attention_csv_path = attention_path,
+                    image_path         = image_path,
+                    machines           = int(machines),
+                    campaign_type      = campaign_type if campaign_names else None,
+                    script_dir         = SCRIPT_DIR,
+                )
+
+            # 出力ファイル名を sendId ベースで決定
+            import re
+            send_id_match = re.search(r'sendId:\s*[\'"]?(\d+)', html)
+            send_id = send_id_match.group(1) if send_id_match else 'output'
+            filename = f'report_{send_id}.html'
+
+            st.success(f'✅ レポート生成完了！（{len(html) // 1024} KB）')
+
+            st.download_button(
+                label     = f'📥 {filename} をダウンロード',
+                data      = html.encode('utf-8'),
+                file_name = filename,
+                mime      = 'text/html',
+            )
+
+        except Exception as e:
+            st.error(f'エラーが発生しました：{e}')
+            import traceback
+            st.code(traceback.format_exc())
+
+# ════════════════════════════════════════════
+# フッター
+# ════════════════════════════════════════════
+st.divider()
+st.caption('© Pix Inc. All Rights Reserved.')
