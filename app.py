@@ -55,7 +55,7 @@ def find_target_file():
             return p
     return None
 
-TARGET_FILE = find_target_file()
+TARGET_FILE = os.path.join(SCRIPT_DIR, 'sms_targets.xlsx') if os.path.exists(os.path.join(SCRIPT_DIR, 'sms_targets.xlsx')) else find_target_file()
 
 # ── スタイル ──────────────────────────────────
 st.markdown("""

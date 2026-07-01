@@ -685,7 +685,7 @@ def generate_report_core(
 
     # 来店結果報告データ
     visit_rate_data = None
-    rate_file = find_data_file(script_dir, ['来店結果報告_平滑化版.xlsx', '報告結果_平滑化版.xlsx', 'visit_rates.xlsx'], glob_pattern='*報告*平滑*.xlsx')
+    rate_file = find_data_file(script_dir, ['visit_rates.xlsx', '来店結果報告_平滑化版.xlsx', '報告結果_平滑化版.xlsx'], glob_pattern='*報告*平滑*.xlsx')
     if rate_file:
         visit_rate_data = load_visit_rates(rate_file)
 
@@ -698,7 +698,7 @@ def generate_report_core(
 
     # 設置台数・キャンペーン種別
     target_file = find_data_file(script_dir, ['SMSターゲット.xlsx', 'SMS対象.xlsx', 'sms_targets.xlsx'])
-    member_file = find_data_file(script_dir, ['会員データ調査_想定台数100刻み_算出済.xlsx', '会員データ調査_想定人数100刻み_算出済.xlsx', 'member_data.xlsx'], glob_pattern='会員データ調査*.xlsx')
+    member_file = find_data_file(script_dir, ['member_data.xlsx', '会員データ調査_想定台数100刻み_算出済.xlsx', '会員データ調査_想定人数100刻み_算出済.xlsx'], glob_pattern='会員データ調査*.xlsx')
     campaign_targets = load_campaign_targets(target_file) if target_file else []
 
     max_segment   = None
@@ -799,7 +799,7 @@ def main():
     # ── XLSX（KO形式）処理
     # 来店結果報告データの自動読み込み
     visit_rate_data = None
-    rate_file = find_data_file(script_dir, ['来店結果報告_平滑化版.xlsx', '報告結果_平滑化版.xlsx', 'visit_rates.xlsx'], glob_pattern='*報告*平滑*.xlsx')
+    rate_file = find_data_file(script_dir, ['visit_rates.xlsx', '来店結果報告_平滑化版.xlsx', '報告結果_平滑化版.xlsx'], glob_pattern='*報告*平滑*.xlsx')
     if rate_file:
         visit_rate_data = load_visit_rates(rate_file)
         print(f'📈 来店結果報告データ読み込み済み: {len(visit_rate_data)}日分')
