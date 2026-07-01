@@ -704,7 +704,7 @@ def generate_report_core(
 
     if machines:
         meta['machines'] = machines
-    if machines and xlsx_path and os.path.exists(member_file):
+    if machines and xlsx_path and member_file and os.path.exists(member_file):
         member_estimates = load_member_estimates(member_file, machines)
         html = inject_unsent_segments(html, segments, member_estimates, visit_rate_data,
                                       meta.get('measurementDays', 0),
