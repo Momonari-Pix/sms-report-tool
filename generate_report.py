@@ -697,8 +697,8 @@ def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_a
             _q4_body = (
                 f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
                 f'来店転換率{worst["visitRate"]}%{_nat_str}。'
-                f'長期離反層の再来店には、特別感・限定感を強調した訴求とLP改善が不可欠です。'
-                f'定期配信で接点を維持しながら、来店意欲が高まった際に響く「特別なオファー」を用意することを推奨します。'
+                f'長期離反層への配信は特別なタイミングに絞るからこそ、訴求内容の質が成否を左右します。'
+                f'「会員限定」「期間限定」など特別感・限定感を前面に出したSMS本文とLPへの改善を優先してください。'
             )
         actions.append({
             'quad': 'q4',
@@ -839,8 +839,8 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None, visit_rat
             # 長期離反：低転換率は想定内。特別感ある訴求とLP改善が鍵
             lines.append(
                 f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。離反期間が長いほど転換率が低下する傾向は全国的に見られ、今回の結果は想定の範囲内。'
-                f'長期離反層の再来店には、特別感・限定感を強調した訴求とLP改善が不可欠です。'
-                f'定期配信で接点を維持しながら、来店意欲が高まった際に響く「特別なオファー」を用意することを推奨します。'
+                f'長期離反層への配信は特別なタイミングに絞るからこそ、訴求内容の質が成否を左右します。'
+                f'「会員限定」「期間限定」など特別感・限定感を前面に出したSMS本文とLPへの改善を優先してください。'
             )
         lines.append('')
 
