@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SMS分析レポート Web UI
+SMSåæã¬ãã¼ã Web UI
 =======================
-起動方法:
+èµ·åæ¹æ³:
   streamlit run app.py
 """
 
@@ -13,41 +13,41 @@ import tempfile
 import streamlit as st
 from generate_report import generate_report_core, load_campaign_targets, analyze_sms, parse_ko_xlsx
 
-# ── ページ設定 ────────────────────────────────
+# ââ ãã¼ã¸è¨­å® ââââââââââââââââââââââââââââââââ
 st.set_page_config(
-    page_title='SMS分析レポート 生成ツール',
-    page_icon='📊',
+    page_title='SMSåæã¬ãã¼ã çæãã¼ã«',
+    page_icon='ð',
     layout='centered',
 )
 
-# ── パスワード認証 ────────────────────────────
+# ââ ãã¹ã¯ã¼ãèªè¨¼ ââââââââââââââââââââââââââââ
 def check_password():
     correct = st.secrets.get('app_password', '')
     if not correct:
-        st.error('管理者設定が必要です（Secrets未設定）')
+        st.error('ç®¡çèè¨­å®ãå¿è¦ã§ãï¼Secretsæªè¨­å®ï¼')
         st.stop()
     if st.session_state.get('authenticated'):
         return
-    st.title('🔐 ログイン')
-    pw = st.text_input('パスワード', type='password')
-    if st.button('ログイン'):
+    st.title('ð ã­ã°ã¤ã³')
+    pw = st.text_input('ãã¹ã¯ã¼ã', type='password')
+    if st.button('ã­ã°ã¤ã³'):
         if pw == correct:
             st.session_state['authenticated'] = True
             st.rerun()
         else:
-            st.error('パスワードが違います')
+            st.error('ãã¹ã¯ã¼ããéãã¾ã')
     st.stop()
 
 check_password()
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# SMSターゲットファイルをglobで自動検出（ファイル名の揺れに対応）
+# SMSã¿ã¼ã²ãããã¡ã¤ã«ãglobã§èªåæ¤åºï¼ãã¡ã¤ã«åã®æºãã«å¯¾å¿ï¼
 def find_target_file():
     hits = glob.glob(os.path.join(SCRIPT_DIR, 'SMS*.xlsx'))
     if hits:
         return hits[0]
-    for name in ['SMSターゲット.xlsx', 'SMS対象.xlsx', 'sms_targets.xlsx']:
+    for name in ['SMSã¿ã¼ã²ãã.xlsx', 'SMSå¯¾è±¡.xlsx', 'sms_targets.xlsx']:
         p = os.path.join(SCRIPT_DIR, name)
         if os.path.exists(p):
             return p
@@ -55,16 +55,16 @@ def find_target_file():
 
 TARGET_FILE = os.path.join(SCRIPT_DIR, 'sms_targets.xlsx') if os.path.exists(os.path.join(SCRIPT_DIR, 'sms_targets.xlsx')) else find_target_file()
 
-# ── フォームリセット用カウンター初期化 ──────────
+# ââ ãã©ã¼ã ãªã»ããç¨ã«ã¦ã³ã¿ã¼åæå ââââââââââ
 if 'form_key' not in st.session_state:
     st.session_state['form_key'] = 0
 
 def reset_form():
     st.session_state['form_key'] += 1
 
-fk = st.session_state['form_key']  # ウィジェットキーのサフィックス
+fk = st.session_state['form_key']  # ã¦ã£ã¸ã§ããã­ã¼ã®ãµãã£ãã¯ã¹
 
-# ── スタイル ──────────────────────────────────
+# ââ ã¹ã¿ã¤ã« ââââââââââââââââââââââââââââââââââ
 st.markdown("""
 <style>
   .block-container { max-width: 740px; padding-top: 2rem; }
@@ -74,136 +74,144 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── タイトル ──────────────────────────────────
-st.title('📊 SMS分析レポート 生成ツール')
-st.caption('必要なファイルをアップロードして「レポート生成」を押してください。')
+# ââ ã¿ã¤ãã« ââââââââââââââââââââââââââââââââââ
+st.title('ð SMSåæã¬ãã¼ã çæãã¼ã«')
+st.caption('å¿è¦ãªãã¡ã¤ã«ãã¢ããã­ã¼ããã¦ãã¬ãã¼ãçæããæ¼ãã¦ãã ããã')
 st.divider()
 
-# ── キャンペーンタイプ一覧を取得 ───────────────
+# ââ ã­ã£ã³ãã¼ã³ã¿ã¤ãä¸è¦§ãåå¾ âââââââââââââââ
 campaign_targets = []
 if TARGET_FILE and os.path.exists(TARGET_FILE):
     campaign_targets = load_campaign_targets(TARGET_FILE)
 campaign_names = [ct['name'] for ct in campaign_targets]
 
-# ════════════════════════════════════════════
-# STEP 1 : 必須ファイル
-# ════════════════════════════════════════════
-st.markdown('<div class="section-title">STEP 1 ─ 必須ファイル</div>', unsafe_allow_html=True)
+# ââââââââââââââââââââââââââââââââââââââââââââ
+# STEP 1 : å¿é ãã¡ã¤ã«
+# ââââââââââââââââââââââââââââââââââââââââââââ
+st.markdown('<div class="section-title">STEP 1 â å¿é ãã¡ã¤ã«</div>', unsafe_allow_html=True)
 
 xlsx_file = st.file_uploader(
-    'KO XLSX（送信結果）',
+    'KO XLSXï¼éä¿¡çµæï¼',
     type=['xlsx'],
-    help='20260609_1200_45889_KO.xlsx のような KO フォーマットのファイル',
+    help='20260609_1200_45889_KO.xlsx ã®ãã KO ãã©ã¼ãããã®ãã¡ã¤ã«',
     key=f'xlsx_{fk}',
 )
 
-# ════════════════════════════════════════════
-# STEP 2 : 任意ファイル
-# ════════════════════════════════════════════
-st.markdown('<div class="section-title">STEP 2 ─ 任意ファイル（あれば精度が上がります）</div>', unsafe_allow_html=True)
+# ââââââââââââââââââââââââââââââââââââââââââââ
+# STEP 2 : ä»»æãã¡ã¤ã«
+# ââââââââââââââââââââââââââââââââââââââââââââ
+st.markdown('<div class="section-title">STEP 2 â ä»»æãã¡ã¤ã«ï¼ããã°ç²¾åº¦ãä¸ããã¾ãï¼</div>', unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 with col1:
     scroll_file = st.file_uploader(
-        'Scroll CSV（到達率）',
+        'Scroll CSVï¼å°éçï¼',
         type=['csv'],
-        help='Clarity の Scroll 深度 CSV',
+        help='Clarity ã® Scroll æ·±åº¦ CSV',
         key=f'scroll_{fk}',
     )
 with col2:
     attention_file = st.file_uploader(
-        'Attention CSV（注目割合）',
+        'Attention CSVï¼æ³¨ç®å²åï¼',
         type=['csv'],
-        help='Clarity の Attention CSV',
+        help='Clarity ã® Attention CSV',
         key=f'attention_{fk}',
     )
 
 lp_image_file = st.file_uploader(
-    'LP画像（スクリーンショット）',
+    'LPç»åï¼ã¹ã¯ãªã¼ã³ã·ã§ããï¼',
     type=['jpg', 'jpeg', 'png', 'webp'],
-    help='スマホで撮影した LP のスクリーンショット等',
+    help='ã¹ããã§æ®å½±ãã LP ã®ã¹ã¯ãªã¼ã³ã·ã§ããç­',
     key=f'image_{fk}',
 )
 
-# ════════════════════════════════════════════
-# STEP 3 : 入力項目
-# ════════════════════════════════════════════
-st.markdown('<div class="section-title">STEP 3 ─ 店舗情報</div>', unsafe_allow_html=True)
+# ââââââââââââââââââââââââââââââââââââââââââââ
+# STEP 3 : å¥åé ç®
+# ââââââââââââââââââââââââââââââââââââââââââââ
+st.markdown('<div class="section-title">STEP 3 â åºèæå ±</div>', unsafe_allow_html=True)
 
 col_m, col_c = st.columns(2)
 with col_m:
-    machines = st.number_input(
-        '総台数',
-        min_value=1,
-        max_value=9999,
-        value=500,
-        step=1,
-        help='店舗の設置台数（パチンコ＋スロット合計）',
+    machines_input = st.text_input(
+        'ç·å°æ° ï¼å¿é ',
+        value='',
+        placeholder='ä¾ï¼578ï¼åè§æ°å­ï¼',
+        help='åºèã®è¨­ç½®å°æ°ï¼ããã³ã³ï¼ã¹ã­ããåè¨ï¼ãåè§æ°å­ã§å¥åãã¦ãã ãã',
         key=f'machines_{fk}',
     )
+    # åè§æ°å­ã®ã¿åãä»ããï¼å¨è§ã»æå­åã¯NGï¼
+    import re as _re
+    _machines_valid = bool(_re.fullmatch(r'[0-9]+', machines_input)) and 1 <= int(machines_input) <= 9999 if machines_input else False
+    machines = int(machines_input) if _machines_valid else None
+    if machines_input and not _machines_valid:
+        st.caption('â ï¸ åè§æ°å­ï¼1ã9999ï¼ã§å¥åãã¦ãã ãã')
 with col_c:
     campaign_type = st.selectbox(
-        'キャンペーンタイプ ＊必須',
-        options=campaign_names if campaign_names else ['（SMSターゲット.xlsx が見つかりません）'],
+        'ã­ã£ã³ãã¼ã³ã¿ã¤ã ï¼å¿é ',
+        options=campaign_names if campaign_names else ['ï¼SMSã¿ã¼ã²ãã.xlsx ãè¦ã¤ããã¾ããï¼'],
         index=None,
-        placeholder='── 選択してください ──',
-        help='SMSターゲット.xlsx に定義されているキャンペーン種別（必ず選択してください）',
+        placeholder='ââ é¸æãã¦ãã ãã ââ',
+        help='SMSã¿ã¼ã²ãã.xlsx ã«å®ç¾©ããã¦ããã­ã£ã³ãã¼ã³ç¨®å¥ï¼å¿ãé¸æãã¦ãã ããï¼',
         key=f'campaign_{fk}',
     )
 
-# ════════════════════════════════════════════
-# STEP 4 : SMS本文チェック（手動選択）
-# ════════════════════════════════════════════
-st.markdown('<div class="section-title">STEP 4 ─ SMS本文チェック（手動選択）</div>', unsafe_allow_html=True)
-st.caption('KOレポートから自動判定が難しい項目を選択してください。「自動判定」にすると本文テキストから推定します。')
+# ââââââââââââââââââââââââââââââââââââââââââââ
+# STEP 4 : SMSæ¬æãã§ãã¯ï¼æåé¸æï¼
+# ââââââââââââââââââââââââââââââââââââââââââââ
+st.markdown('<div class="section-title">STEP 4 â SMSæ¬æãã§ãã¯ï¼æåé¸æï¼</div>', unsafe_allow_html=True)
+st.caption('KOã¬ãã¼ãããèªåå¤å®ãé£ããé ç®ãé¸æãã¦ãã ããããèªåå¤å®ãã«ããã¨æ¬æãã­ã¹ãããæ¨å®ãã¾ãã')
 
 col_s1, col_s2 = st.columns(2)
 with col_s1:
-    _store_sel = st.radio('店名の記載', ['自動判定','有','無'], horizontal=True,
-                          help='SMS本文に店名が記載されているか', key=f'store_{fk}')
+    _store_sel = st.radio('åºåã®è¨è¼', ['èªåå¤å®','æ','ç¡'], horizontal=True,
+                          help='SMSæ¬æã«åºåãè¨è¼ããã¦ããã', key=f'store_{fk}')
 with col_s2:
-    _customer_sel = st.radio('お客様名の記載', ['自動判定','有','無'], horizontal=True,
-                             help='SMS本文にお客様の個人名が差し込まれているか', key=f'customer_{fk}')
+    _customer_sel = st.radio('ãå®¢æ§åã®è¨è¼', ['èªåå¤å®','æ','ç¡'], horizontal=True,
+                             help='SMSæ¬æã«ãå®¢æ§ã®åäººåãå·®ãè¾¼ã¾ãã¦ããã', key=f'customer_{fk}')
 
 col_s3, col_s4 = st.columns(2)
 with col_s3:
-    _warmth_sel = st.radio('お店の思い・温かみ', ['自動判定','有','無'], horizontal=True,
-                           help='感謝・期待感など温かみのある表現があるか', key=f'warmth_{fk}')
+    _warmth_sel = st.radio('ãåºã®æãã»æ¸©ãã¿', ['èªåå¤å®','æ','ç¡'], horizontal=True,
+                           help='æè¬ã»æå¾æãªã©æ¸©ãã¿ã®ããè¡¨ç¾ãããã', key=f'warmth_{fk}')
 with col_s4:
-    _generic_sel = st.radio('汎用フレーズのみ', ['自動判定','要改善','改善不要'], horizontal=True,
-                            help='要改善＝汎用フレーズのみで具体性がない / 改善不要＝具体的な内容が含まれている', key=f'generic_{fk}')
+    _generic_sel = st.radio('æ±ç¨ãã¬ã¼ãºã®ã¿', ['èªåå¤å®','æ¹åä¸è¦','è¦æ¹å'], horizontal=True,
+                            help='è¦æ¹åï¼æ±ç¨ãã¬ã¼ãºã®ã¿ã§å·ä½æ§ããªã / æ¹åä¸è¦ï¼å·ä½çãªåå®¹ãå«ã¾ãã¦ãã', key=f'generic_{fk}')
 
 col_s5, _ = st.columns(2)
 with col_s5:
-    _hook_sel = st.radio('興味喚起フック', ['自動判定','有','無'], horizontal=True,
-                         help='数字・限定・固有ワードなどフックとなる表現があるか', key=f'hook_{fk}')
+    _hook_sel = st.radio('èå³åèµ·ããã¯', ['èªåå¤å®','æ','ç¡'], horizontal=True,
+                         help='æ°å­ã»éå®ã»åºæã¯ã¼ããªã©ããã¯ã¨ãªãè¡¨ç¾ãããã', key=f'hook_{fk}')
 
-store_name_status    = None if _store_sel    == '自動判定' else _store_sel
-customer_name_status = None if _customer_sel == '自動判定' else _customer_sel
-warmth_status        = None if _warmth_sel   == '自動判定' else _warmth_sel
-# 「要改善」→内部値「有」（汎用フレーズのみ＝問題あり）、「改善不要」→「無」
-generic_status       = None if _generic_sel  == '自動判定' else ('有' if _generic_sel == '要改善' else '無')
-hook_status          = None if _hook_sel     == '自動判定' else _hook_sel
+store_name_status    = None if _store_sel    == 'èªåå¤å®' else _store_sel
+customer_name_status = None if _customer_sel == 'èªåå¤å®' else _customer_sel
+warmth_status        = None if _warmth_sel   == 'èªåå¤å®' else _warmth_sel
+# ãè¦æ¹åãâåé¨å¤ãæãï¼æ±ç¨ãã¬ã¼ãºã®ã¿ï¼åé¡ããï¼ããæ¹åä¸è¦ãâãç¡ã
+generic_status       = None if _generic_sel  == 'èªåå¤å®' else ('æ' if _generic_sel == 'è¦æ¹å' else 'ç¡')
+hook_status          = None if _hook_sel     == 'èªåå¤å®' else _hook_sel
 
-# ════════════════════════════════════════════
-# ボタン行（生成 ＋ リセット）
-# ════════════════════════════════════════════
+# ââââââââââââââââââââââââââââââââââââââââââââ
+# ãã¿ã³è¡ï¼çæ ï¼ ãªã»ããï¼
+# ââââââââââââââââââââââââââââââââââââââââââââ
 st.divider()
 btn_col1, btn_col2 = st.columns([3, 1])
 with btn_col1:
-    _btn_disabled = (xlsx_file is None) or (campaign_type is None and bool(campaign_names))
-    generate_btn = st.button('🚀 レポートを生成する', type='primary', disabled=_btn_disabled)
+    _btn_disabled = (
+        (xlsx_file is None) or
+        (campaign_type is None and bool(campaign_names)) or
+        (machines is None)
+    )
+    generate_btn = st.button('ð ã¬ãã¼ããçæãã', type='primary', disabled=_btn_disabled)
 with btn_col2:
-    st.button('🔄 リセット', on_click=reset_form)
+    st.button('ð ãªã»ãã', on_click=reset_form)
 
 if xlsx_file is None:
-    st.info('KO XLSX をアップロードするとレポートを生成できます。')
+    st.info('KO XLSX ãã¢ããã­ã¼ãããã¨ã¬ãã¼ããçæã§ãã¾ãã')
 elif campaign_type is None and bool(campaign_names):
-    st.warning('キャンペーンタイプを選択してください。')
+    st.warning('ã­ã£ã³ãã¼ã³ã¿ã¤ããé¸æãã¦ãã ããã')
 
-# ── 生成処理 ──────────────────────────────────
+# ââ çæå¦ç ââââââââââââââââââââââââââââââââââ
 if generate_btn and xlsx_file is not None:
-    with st.spinner('レポートを生成中...'):
+    with st.spinner('ã¬ãã¼ããçæä¸­...'):
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
                 def save_upload(uploaded, suffix):
@@ -243,20 +251,20 @@ if generate_btn and xlsx_file is not None:
             store_safe = re.sub(r'[\\/:*?"<>|\s]', '_', store_raw)
             filename = f'{store_safe}_{send_id}.html' if store_safe else f'report_{send_id}.html'
 
-            # ── 手動設定と自動判定の矛盾チェック ──
+            # ââ æåè¨­å®ã¨èªåå¤å®ã®çç¾ãã§ãã¯ ââ
             try:
                 _, _, meta_q = parse_ko_xlsx(xlsx_path)
                 sms_text_q = meta_q.get('smsText', '')
                 store_q    = meta_q.get('store', '')
                 if sms_text_q:
                     auto = {c['label']: c for c in analyze_sms(sms_text_q, store_name=store_q)['checks']}
-                    # label → (手動値, 手動値がwarnになる内部status, 手動値がokになる内部status)
+                    # label â (æåå¤, æåå¤ãwarnã«ãªãåé¨status, æåå¤ãokã«ãªãåé¨status)
                     checks_map = [
-                        ('店名の記載',        store_name_status,    '有', 'ok',   '無', 'warn'),
-                        ('お客様名の記載',    customer_name_status, '有', 'ok',   '無', 'na'),
-                        ('お店の思い・温かみ', warmth_status,       '有', 'ok',   '無', 'warn'),
-                        ('汎用フレーズのみ',  generic_status,       '無', 'ok',   '有', 'warn'),
-                        ('興味喚起フック',    hook_status,          '有', 'ok',   '無', 'warn'),
+                        ('åºåã®è¨è¼',        store_name_status,    'æ', 'ok',   'ç¡', 'warn'),
+                        ('ãå®¢æ§åã®è¨è¼',    customer_name_status, 'æ', 'ok',   'ç¡', 'na'),
+                        ('ãåºã®æãã»æ¸©ãã¿', warmth_status,       'æ', 'ok',   'ç¡', 'warn'),
+                        ('æ±ç¨ãã¬ã¼ãºã®ã¿',  generic_status,       'ç¡', 'ok',   'æ', 'warn'),
+                        ('èå³åèµ·ããã¯',    hook_status,          'æ', 'ok',   'ç¡', 'warn'),
                     ]
                     for label, manual_val, ok_val, ok_st, ng_val, ng_st in checks_map:
                         if manual_val is None or label not in auto:
@@ -265,30 +273,30 @@ if generate_btn and xlsx_file is not None:
                         auto_detail = auto[label]['detail']
                         manual_status = ok_st if manual_val == ok_val else ng_st
                         if manual_status != auto_status:
-                            ui_val = ('要改善' if manual_val == '有' else '改善不要') if label == '汎用フレーズのみ' else manual_val
+                            ui_val = ('è¦æ¹å' if manual_val == 'æ' else 'æ¹åä¸è¦') if label == 'æ±ç¨ãã¬ã¼ãºã®ã¿' else manual_val
                             st.warning(
-                                f'⚠️ **{label}**：手動で「{ui_val}」に設定されていますが、'
-                                f'自動判定では異なる結果でした。\n'
-                                f'自動判定の根拠：{auto_detail}'
+                                f'â ï¸ **{label}**ï¼æåã§ã{ui_val}ãã«è¨­å®ããã¦ãã¾ããã'
+                                f'èªåå¤å®ã§ã¯ç°ãªãçµæã§ããã\n'
+                                f'èªåå¤å®ã®æ ¹æ ï¼{auto_detail}'
                             )
             except Exception:
-                pass  # 矛盾チェック失敗はサイレントに無視
+                pass  # çç¾ãã§ãã¯å¤±æã¯ãµã¤ã¬ã³ãã«ç¡è¦
 
-            st.success(f'✅ レポート生成完了！（{len(html) // 1024} KB）')
+            st.success(f'â ã¬ãã¼ãçæå®äºï¼ï¼{len(html) // 1024} KBï¼')
             st.download_button(
-                label     = f'📥 {filename} をダウンロード',
+                label     = f'ð¥ {filename} ããã¦ã³ã­ã¼ã',
                 data      = html.encode('utf-8'),
                 file_name = filename,
                 mime      = 'text/html',
             )
 
         except Exception as e:
-            st.error(f'エラーが発生しました：{e}')
+            st.error(f'ã¨ã©ã¼ãçºçãã¾ããï¼{e}')
             import traceback
             st.code(traceback.format_exc())
 
-# ════════════════════════════════════════════
-# フッター
-# ════════════════════════════════════════════
+# ââââââââââââââââââââââââââââââââââââââââââââ
+# ããã¿ã¼
+# ââââââââââââââââââââââââââââââââââââââââââââ
 st.divider()
-st.caption('© Pix Inc. All Rights Reserved.')
+st.caption('Â© Pix Inc. All Rights Reserved.')
