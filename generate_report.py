@@ -629,7 +629,7 @@ def lp_actions_from_heatmap(image_path, scroll_depths):
     return []
 
 
-def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_actions=None):
+def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_actions=None, visit_rate_data=None):
     """実データから「次の一手」アクション提案リストを自動生成"""
     actions = []
     if not segments:
@@ -674,18 +674,21 @@ def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_a
         _q4_eligible = [s for s in q4_segs if s['sent'] >= 20] or q4_segs
         worst = min(_q4_eligible, key=lambda s: s['visitRate'])
         _low = worst['sent'] < 20
+        _mdays = min(meta.get('measurementDays', 7), 30)
+        _nat_val = visit_rate_data.get(_mdays, {}).get(worst['label']) if visit_rate_data else None
+        _nat_str = f'（全国平均{round(_nat_val * 100, 1)}%）' if _nat_val is not None else ''
         _SHORT_LAPSE_SET = {'1ヶ月未満', '1〜2ヶ月', '2〜3ヶ月', '3〜6ヶ月'}
         if worst['label'] in _SHORT_LAPSE_SET:
             _q4_body = (
                 f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
-                f'来店転換率{worst["visitRate"]}%。'
+                f'来店転換率{worst["visitRate"]}%{_nat_str}。'
                 f'短期離反層は本来転換しやすい層のため、この結果は要注意。'
-                f'SMS訴求内容の見直しや送信時間帯の変更を優先的に検討してください。'
+                f'SMS訴求内容の見直しを優先的に検討してください。'
             )
         else:
             _q4_body = (
                 f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
-                f'来店転換率{worst["visitRate"]}%。'
+                f'来店転換率{worst["visitRate"]}%{_nat_str}。'
                 f'離反期間が長い層は来店転換率が低くなる傾向があり、この結果は想定の範囲内。'
                 f'来店転換より「認知・接点の維持」を目標に、定期配信による関係再構築を推奨します。'
             )
@@ -742,7 +745,7 @@ def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_a
     return actions
 
 
-def generate_findings(segments, age_segments, meta, sms_analysis=None):
+def generate_findings(segments, age_segments, meta, sms_analysis=None, visit_rate_data=None):
     """実データから所見・コメントテキストを自動生成"""
     if not segments:
         return '（データが不足しているため所見を生成できません）'
@@ -803,27 +806,31 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None):
 
     # ── 低反応層への対応
     _SHORT_LAPSE = {'1ヶ月未満', '1〜2ヶ月', '2〜3ヶ月', '3〜6ヶ月'}
+    _fmdays = min(meta.get('measurementDays', 7), 30)
     if worst_seg['visitRate'] < avg_visit_rate:
         lines.append('【低反応層への対応】')
         _wlabel = worst_seg['label']
         _wvr    = worst_seg['visitRate']
         _wlpr   = worst_seg['lpRate']
+        _fnat   = visit_rate_data.get(_fmdays, {}).get(_wlabel) if visit_rate_data else None
+        _fnat_str = f'（全国平均{round(_fnat * 100, 1)}%）' if _fnat is not None else ''
         if _wlabel in _SHORT_LAPSE:
             lines.append(
-                f'{_wlabel}離反層は本来再来店ハードルが低く高い転換率が期待できる層だが、今回は{_wvr}%にとどまった。'
-                f'SMS本文の訴求内容・送信タイミングの見直しを優先的に検討してください。'
+                f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。'
+                f'本来再来店ハードルが低い短期離反層での低転換率は要注意。'
+                f'SMS訴求内容の見直しを優先的に検討してください。'
             )
         else:
             # 長期離反：低転換率は想定内。LP支持率（閲覧意欲）に着目する
             if _wlpr >= avg_lp_rate:
                 lines.append(
-                    f'{_wlabel}離反層は来店転換率{_wvr}%だが、LP支持率{_wlpr}%と閲覧意欲は平均以上を維持している。'
+                    f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}だが、LP支持率{_wlpr}%と閲覧意欲は全体平均以上を維持している。'
                     f'離反期間が長い層への配信は「来店転換」より「認知・関心の再醸成」が主目的。'
                     f'定期的な接触を継続し、来店意欲が高まった際の第一想起を狙う戦略を推奨する。'
                 )
             else:
                 lines.append(
-                    f'{_wlabel}離反層は離反期間が長く、来店転換率{_wvr}%は想定の範囲内。'
+                    f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。離反期間が長いほど転換率が低下する傾向は全国的に見られ、今回の結果は想定の範囲内。'
                     f'単回配信での即時来店より、定期的な情報提供による関係再構築を優先し、'
                     f'まずはLP閲覧率の向上（認知維持）を中間目標として設定することを推奨する。'
                 )
@@ -1103,8 +1110,9 @@ def generate_report_core(
         extra_lp.extend(lp_actions_from_scroll(scroll_depths))
         extra_lp.extend(lp_actions_from_heatmap(image_path, scroll_depths))
         actions  = generate_actions(segments, age_segments, meta, sms_analysis_ref,
-                                    extra_lp_actions=extra_lp)
-        findings = generate_findings(segments, age_segments, meta, sms_analysis_ref)
+                                    extra_lp_actions=extra_lp, visit_rate_data=visit_rate_data)
+        findings = generate_findings(segments, age_segments, meta, sms_analysis_ref,
+                                     visit_rate_data=visit_rate_data)
         html = inject_actions(html, actions)
         html = inject_findings(html, findings)
 
