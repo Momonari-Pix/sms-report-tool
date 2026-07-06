@@ -745,10 +745,14 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None):
     # ── 全体総括
     lines.append('【全体総括】')
     if age_segments:
-        best_age = max(age_segments, key=lambda a: a['visitRate'])
+        # q1（優良反応層）の年代を全て列挙。q1がなければ最高visitRateの1つ
+        q1_ages = [a for a in age_segments if a.get('tag') == 'q1']
+        if not q1_ages:
+            q1_ages = [max(age_segments, key=lambda a: a['visitRate'])]
+        age_labels = '・'.join(a['label'] for a in q1_ages)
         lines.append(
-            f'{store}の今回の配信では、{best_age["label"]}・{best_seg["label"]}離反層が優良反応層に位置し、'
-            f'来店転換率・LP支持率ともに全体平均（来店{avg_visit_rate}% / LP{avg_lp_rate}%）を上回る結果となった。'
+            f'今回の配信では{age_labels}が優良反応層に位置し、'
+            f'来店転換率・LP支持率ともに全体平均を上回る結果となった。'
         )
     else:
         lines.append(
