@@ -436,8 +436,9 @@ def image_to_base64(filepath):
 # ── HTML注入 ──────────────────────────────────
 def inject_scroll_depths(html, scroll_depths):
     new_str = 'scrollDepths: ' + json.dumps(scroll_depths, ensure_ascii=False, indent=4) + ','
+    replacement = '  // LP スクロール深度データ（自動生成）\n  ' + new_str + '\n'
     pattern = r'// LP スクロール深度データ.*?scrollDepths: \[.*?\],\n'
-    return re.sub(pattern, '  // LP スクロール深度データ（自動生成）\n  ' + new_str + '\n', html, flags=re.DOTALL)
+    return re.sub(pattern, lambda m: replacement, html, flags=re.DOTALL)
 
 def analyze_sms(text, store_name=''):
     """SMS本文の品質を簡易チェックして評価結果を返す"""
@@ -700,7 +701,7 @@ def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_a
                 if label in hint_map:
                     hints.append(f'・{label}：{hint_map[label]}')
             body = (f'SMS本文チェックで{len(problem_labels)}項目の要改善・要確認が検出されました。'
-                    f'次回配信前に本文の見直しを推奨します。\n' + '\n'.join(hints))
+                    f'次回配信前に本文の見直しを推奨します。<br>' + '<br>'.join(hints))
             actions.append({
                 'quad': 'q4',
                 'title': f'✏️ SMS本文の見直し提案（{len(problem_labels)}項目要対応）',
@@ -792,7 +793,8 @@ def inject_actions(html, actions):
     """DATAオブジェクトのactionsを実データに差し替え"""
     new_str = 'actions: ' + json.dumps(actions, ensure_ascii=False, indent=4) + ','
     pattern = r'actions: \[.*?\],'
-    return re.sub(pattern, new_str, html, flags=re.DOTALL)
+    # lambdaを使うことでre.subによる\nの展開を防ぐ
+    return re.sub(pattern, lambda m: new_str, html, flags=re.DOTALL)
 
 
 def inject_findings(html, findings_text):
@@ -815,17 +817,19 @@ def inject_sms_analysis(html, sms_text, analysis):
 
 def inject_age_segments(html, age_segments):
     new_str = 'ageSegments: ' + json.dumps(age_segments, ensure_ascii=False, indent=4) + ','
+    replacement = '  // 年代別データ（自動生成）\n  ' + new_str + '\n'
     pattern = r'// 年代別データ.*?ageSegments: \[.*?\],\n'
-    result = re.sub(pattern, '  // 年代別データ（自動生成）\n  ' + new_str + '\n', html, flags=re.DOTALL)
+    result = re.sub(pattern, lambda m: replacement, html, flags=re.DOTALL)
     if result == html:  # パターンが見つからない場合はsegmentsの直後に挿入
-        html = html.replace('  // 離反期間別データ（自動生成）', '  // 年代別データ（自動生成）\n  ' + new_str + '\n\n  // 離反期間別データ（自動生成）')
+        html = html.replace('  // 離反期間別データ（自動生成）', replacement + '\n  // 離反期間別データ（自動生成）')
         return html
     return result
 
 def inject_segments(html, segments):
     new_str = 'segments: ' + json.dumps(segments, ensure_ascii=False, indent=4) + ','
+    replacement = '  // 離反期間別データ（自動生成）\n  ' + new_str + '\n'
     pattern = r'// 離反期間別データ.*?segments: \[.*?\],\n'
-    return re.sub(pattern, '  // 離反期間別データ（自動生成）\n  ' + new_str + '\n', html, flags=re.DOTALL)
+    return re.sub(pattern, lambda m: replacement, html, flags=re.DOTALL)
 
 def inject_unsent_segments(html, segments, member_estimates, visit_rate_data, measurement_days,
                            max_segment=None, birthday_mode=False):
