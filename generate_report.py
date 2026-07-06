@@ -673,12 +673,15 @@ def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_a
     if q4_segs:
         _q4_eligible = [s for s in q4_segs if s['sent'] >= 20] or q4_segs
         worst = min(_q4_eligible, key=lambda s: s['visitRate'])
+        _low = worst['sent'] < 20
         actions.append({
             'quad': 'q4',
             'title': f'▽ 低反応層 › {worst["label"]}離反（{worst["sent"]}名）：要優先対応',
             'body': (f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
                      f'来店転換率{worst["visitRate"]}%と全体平均（{avg_visit_rate}%）を下回る。'
                      f'SMS本文の見直しや送信時間帯の変更を検討してください。'),
+            'lowSample': _low,
+            'sentCount': worst['sent'],
         })
 
     # ④ シミュレーション提案（常時）

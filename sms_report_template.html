@@ -631,6 +631,9 @@
           <span>● バブルサイズ = 送信成功数</span>
           <span id="avg-legend">青破線 = 全体平均</span>
         </div>
+        <div id="low-sample-note" style="display:none; margin-top:6px; font-size:11px; color:#92400e; background:#fef3c7; border:1px solid #fcd34d; border-radius:5px; padding:4px 10px; text-align:center;">
+          ⚠ 点線で表示しているセグメントは送信数が少なく（n&lt;20）、転換率が統計的に不安定です。参考値としてご確認ください。
+        </div>
       </div>
       <div class="quad-cards">
         <div class="qcard qc-star">
@@ -1169,7 +1172,13 @@ document.getElementById('kpi-visits-sub').textContent = '送信成功の' + pct(
   DATA.actions.forEach(a => {
     const div = document.createElement('div');
     div.className = 'action-item a' + (a.quad || '');
-    div.innerHTML = `<strong>${a.title}</strong>${a.body}`;
+    const badge = a.lowSample
+      ? `<span style="display:inline-block;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:6px;vertical-align:middle;">参考値 n=${a.sentCount}</span>`
+      : '';
+    const note = a.lowSample
+      ? `<div style="margin-top:6px;padding-top:5px;border-top:1px solid #fde68a;font-size:10px;color:#92400e;">※ 送信数が少ないため転換率は参考値です。データ蓄積後に再評価してください。</div>`
+      : '';
+    div.innerHTML = `<strong>${a.title}${badge}</strong>${a.body}${note}`;
     grid.appendChild(div);
   });
 })();
@@ -1290,6 +1299,27 @@ document.getElementById('kpi-visits-sub').textContent = '送信成功の' + pct(
           ctx.shadowBlur = 0;
           ctx.fillStyle = '#222';
           ctx.fillText(ds.label, pt.x, labelY);
+
+          // sent < 20 のとき n=XX バッジを追加
+          const rawN = pt.$context && pt.$context.raw ? pt.$context.raw.n : (ds.data[0] && ds.data[0].n);
+          if (rawN != null && rawN < 20) {
+            const badgeText = 'n=' + rawN;
+            ctx.font = "10px 'Hiragino Sans', 'Yu Gothic UI', sans-serif";
+            const bw = ctx.measureText(badgeText).width + 8;
+            const bh = 14;
+            const bx = pt.x - bw / 2;
+            const by = labelY + 3;
+            ctx.fillStyle = '#fef3c7';
+            ctx.strokeStyle = '#d97706';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(bx, by, bw, bh, 3);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#92400e';
+            ctx.fillText(badgeText, pt.x, by + 10);
+            ctx.font = "bold 11px 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif";
+          }
         });
       });
       ctx.restore();
@@ -1318,13 +1348,17 @@ document.getElementById('kpi-visits-sub').textContent = '送信成功の' + pct(
   new Chart(document.getElementById('scatter'), {
     type: 'bubble',
     data: {
-      datasets: chartSegs.map(g => ({
-        label: g.label,
-        data: [{ x: g.visitRate, y: g.lpRate, r: Math.max(8, 9 + (g.sent - minSent) / Math.max(1, maxSent - minSent) * 16), n: g.sent, visits: g.visits, lp: g.lp }],
-        backgroundColor: colors[g.tag].bg,
-        borderColor:     colors[g.tag].border,
-        borderWidth: 2,
-      }))
+      datasets: chartSegs.map(g => {
+        const lowSample = g.sent < 20;
+        return {
+          label: g.label,
+          data: [{ x: g.visitRate, y: g.lpRate, r: Math.max(8, 9 + (g.sent - minSent) / Math.max(1, maxSent - minSent) * 16), n: g.sent, visits: g.visits, lp: g.lp }],
+          backgroundColor: lowSample ? 'rgba(161,161,170,0.20)' : colors[g.tag].bg,
+          borderColor:     lowSample ? '#a1a1aa'                : colors[g.tag].border,
+          borderWidth: 2,
+          borderDash: lowSample ? [5, 4] : [],
+        };
+      })
     },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -1356,6 +1390,12 @@ document.getElementById('kpi-visits-sub').textContent = '送信成功の' + pct(
     },
     plugins: [quadrantPlugin, labelPlugin]
   });
+
+  // 送信数 < 20 のセグメントが1つでもあればフッター注釈を表示
+  if (chartSegs.some(g => g.sent < 20)) {
+    const noteEl = document.getElementById('low-sample-note');
+    if (noteEl) noteEl.style.display = 'block';
+  }
 
   // 象限カード
   const qMap = { q1: [], q2: [], q3: [], q4: [] };
