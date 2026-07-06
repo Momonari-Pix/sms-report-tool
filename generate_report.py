@@ -904,7 +904,10 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None, visit_rat
         if worst_seg['label'] in _SHORT_LAPSE:
             _w_action = 'SMS訴求内容の早急な見直しを優先してください。'
         elif worst_seg['label'] in _MEDIUM_LAPSE:
-            _w_action = '特別感・限定感のある本文・LP内容への改善を検討してください。'
+            if _sms_has_special_feel(meta):
+                _w_action = 'LP内の来店を促す訴求をより具体的・魅力的に強化することを優先してください。'
+            else:
+                _w_action = '特別感・限定感のある本文・LP内容への改善を検討してください。'
         else:
             _w_action = '特別なタイミングに絞った配信で、訴求内容の質向上を優先してください。'
         lines.append(
@@ -936,9 +939,13 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None, visit_rat
                 f'LPへの関心はあるが来店に繋がっていません。LP内の来店を促す訴求の具体化・強化を検討してください。'
             )
         for a in q4_ages:
+            if _sms_has_special_feel(meta):
+                _q4_text = 'LP内容の改善を優先してください。この年代に響くLP訴求への具体的な見直しを検討してください。'
+            else:
+                _q4_text = 'SMS本文とLP両方の改善が必要です。この年代に響く訴求内容への見直しを検討してください。'
             lines.append(
                 f'・{a["label"]}（来店転換率{a["visitRate"]}%・LP支持率{a["lpRate"]}%、ともに全体平均以下）：'
-                f'SMS本文とLP両方の改善が必要です。この年代に響く訴求内容への見直しを検討してください。'
+                f'{_q4_text}'
             )
         lines.append('')
 
