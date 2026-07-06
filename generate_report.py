@@ -669,9 +669,10 @@ def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_a
                      f'LP内容と店頭の一致度を高め、「今すぐ行く理由」を強化することで改善が期待できます。'),
         })
 
-    # ③ 低反応層（q4）：最も来店率が低いセグメントを抽出
+    # ③ 低反応層（q4）：最も来店率が低いセグメントを抽出（送信数20件未満は除外）
     if q4_segs:
-        worst = min(q4_segs, key=lambda s: s['visitRate'])
+        _q4_eligible = [s for s in q4_segs if s['sent'] >= 20] or q4_segs
+        worst = min(_q4_eligible, key=lambda s: s['visitRate'])
         actions.append({
             'quad': 'q4',
             'title': f'▽ 低反応層 › {worst["label"]}離反（{worst["sent"]}名）：要優先対応',
@@ -737,7 +738,9 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None):
     avg_lp_rate    = round(total_lp    / total_sent * 100, 1) if total_sent else 0
 
     best_seg  = max(segments, key=lambda s: s['visitRate'])
-    worst_seg = min(segments, key=lambda s: s['visitRate'])
+    _MIN_SENT = 20
+    _eligible = [s for s in segments if s['sent'] >= _MIN_SENT] or segments
+    worst_seg = min(_eligible, key=lambda s: s['visitRate'])
 
     store = meta.get('store', '今回の店舗')
     lines = []
