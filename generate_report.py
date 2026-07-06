@@ -700,7 +700,7 @@ def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_a
                     f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
                     f'来店転換率{worst["visitRate"]}%{_nat_str}。'
                     f'今回のSMS本文には既に限定感のある訴求が含まれています。'
-                    f'SMS訴求の方向性は維持しつつ、LP内のCTA強化・特典内容の具体化など、LP側の改善を優先的に検討してください。'
+                    f'SMS訴求の方向性は維持しつつ、LP内の来店を促す訴求をより具体的・魅力的に強化することを優先的に検討してください。'
                 )
             else:
                 _q4_body = (
@@ -715,7 +715,7 @@ def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_a
                     f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
                     f'来店転換率{worst["visitRate"]}%{_nat_str}。'
                     f'今回のSMS本文には既に限定感のある訴求が含まれています。'
-                    f'長期離反層への配信は内容の質が成否を左右するため、LP側のコンテンツ改善（特典の具体化・CTA強化）を優先してください。'
+                    f'長期離反層への配信は内容の質が成否を左右するため、LP内の来店を促す訴求をより具体的・魅力的に強化することを優先してください。'
                 )
             else:
                 _q4_body = (
@@ -858,7 +858,7 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None, visit_rat
                 lines.append(
                     f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。'
                     f'今回のSMS本文には既に限定感のある訴求が含まれています。'
-                    f'SMS訴求の方向性は維持しつつ、LP内のCTA強化・特典内容の具体化など、LP側の改善を優先的に検討してください。'
+                    f'SMS訴求の方向性は維持しつつ、LP内の来店を促す訴求をより具体的・魅力的に強化することを優先的に検討してください。'
                 )
             else:
                 lines.append(
@@ -872,7 +872,7 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None, visit_rat
                 lines.append(
                     f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。離反期間が長いほど転換率が低下する傾向は全国的に見られ、今回の結果は想定の範囲内。'
                     f'今回のSMS本文には既に限定感のある訴求が含まれています。'
-                    f'長期離反層への配信は内容の質が成否を左右するため、LP側のコンテンツ改善（特典の具体化・CTA強化）を優先してください。'
+                    f'長期離反層への配信は内容の質が成否を左右するため、LP内の来店を促す訴求をより具体的・魅力的に強化することを優先してください。'
                 )
             else:
                 lines.append(
@@ -933,7 +933,7 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None, visit_rat
         for a in q3_ages:
             lines.append(
                 f'・{a["label"]}（LP支持率{a["lpRate"]}%は全体平均以上、来店転換率{a["visitRate"]}%は平均以下）：'
-                f'LPへの関心はあるが来店に繋がっていません。LP内のCTA強化や特典訴求の見直しを検討してください。'
+                f'LPへの関心はあるが来店に繋がっていません。LP内の来店を促す訴求の具体化・強化を検討してください。'
             )
         for a in q4_ages:
             lines.append(
