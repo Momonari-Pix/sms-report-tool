@@ -850,15 +850,19 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None, visit_rat
 
     # ◆ 離反期間別
     lines.append('◆ 離反期間別')
-    _best_diff = round(best_seg['visitRate'] - avg_visit_rate, 1)
-    _best_vs   = f'全体平均より{_best_diff}pt高い' if _best_diff >= 0 else f'全体平均より{abs(_best_diff)}pt低い'
+    _best_diff   = round(best_seg['visitRate'] - avg_visit_rate, 1)
+    _best_vs     = f'全体平均より{_best_diff}pt高い' if _best_diff >= 0 else f'全体平均より{abs(_best_diff)}pt低い'
+    _best_nat    = visit_rate_data.get(_fmdays, {}).get(best_seg['label']) if visit_rate_data else None
+    _best_nat_str = f'・全国平均{round(_best_nat * 100, 1)}%' if _best_nat is not None else ''
     lines.append(
-        f'・{best_seg["label"]}離反層（来店転換率{best_seg["visitRate"]}%、{_best_vs}）：'
+        f'・{best_seg["label"]}離反層（来店転換率{best_seg["visitRate"]}%、{_best_vs}{_best_nat_str}）：'
         f'好反応を維持。次回も中心ターゲットとして継続配信を推奨します。'
     )
     if worst_seg['label'] != best_seg['label']:
-        _worst_diff = round(worst_seg['visitRate'] - avg_visit_rate, 1)
-        _worst_vs   = f'全体平均より{abs(_worst_diff)}pt低い' if _worst_diff < 0 else f'全体平均と同水準'
+        _worst_diff   = round(worst_seg['visitRate'] - avg_visit_rate, 1)
+        _worst_vs     = f'全体平均より{abs(_worst_diff)}pt低い' if _worst_diff < 0 else f'全体平均と同水準'
+        _worst_nat    = visit_rate_data.get(_fmdays, {}).get(worst_seg['label']) if visit_rate_data else None
+        _worst_nat_str = f'・全国平均{round(_worst_nat * 100, 1)}%' if _worst_nat is not None else ''
         if worst_seg['label'] in _SHORT_LAPSE:
             _w_action = 'SMS訴求内容の早急な見直しを優先してください。'
         elif worst_seg['label'] in _MEDIUM_LAPSE:
@@ -866,7 +870,7 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None, visit_rat
         else:
             _w_action = '特別なタイミングに絞った配信で、訴求内容の質向上を優先してください。'
         lines.append(
-            f'・{worst_seg["label"]}離反層（来店転換率{worst_seg["visitRate"]}%、{_worst_vs}）：{_w_action}'
+            f'・{worst_seg["label"]}離反層（来店転換率{worst_seg["visitRate"]}%、{_worst_vs}{_worst_nat_str}）：{_w_action}'
         )
     lines.append('・ターゲット条件の緩和（離反期間の段階的な拡大）も引き続き検討してください。')
     lines.append('')
