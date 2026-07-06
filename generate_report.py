@@ -584,7 +584,9 @@ def lp_actions_from_scroll(scroll_depths):
     sorted_d = sorted(scroll_depths, key=lambda x: int(str(x['depth']).replace('%', '')))
     for d in sorted_d:
         depth_val = int(str(d['depth']).replace('%', ''))
-        reach = d.get('pct', 100)
+        reach = d.get('reach')  # Scroll CSVから設定される到達率（なければスキップ）
+        if reach is None:
+            continue
         if reach <= 30 and depth_val <= 50:
             return [{
                 'quad': 'q4',
@@ -606,10 +608,11 @@ def lp_actions_from_heatmap(image_path, scroll_depths):
     # scroll_depthsの中で最も近い深度を探す
     sorted_d = sorted(scroll_depths, key=lambda x: int(str(x['depth']).replace('%', '')))
     best = min(sorted_d, key=lambda x: abs(int(str(x['depth']).replace('%', '')) - red_pct))
-    reach = best.get('pct', 100)
+    reach = best.get('reach')  # Scroll CSVから設定される到達率
     depth_val = int(str(best['depth']).replace('%', ''))
-    if reach < 70:
-        return [{
+    if reach is None or reach >= 70:
+        return []
+    return [{
             'quad': 'q3',
             'title': f'🔥 注目エリアの到達率が低下：上部移動を推奨',
             'body': (f'ヒートマップで最も注目されているエリア（LP上から約{red_pct}%付近）の'
