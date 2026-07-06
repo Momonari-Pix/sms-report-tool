@@ -677,7 +677,8 @@ def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_a
         _mdays = min(meta.get('measurementDays', 7), 30)
         _nat_val = visit_rate_data.get(_mdays, {}).get(worst['label']) if visit_rate_data else None
         _nat_str = f'（全国平均{round(_nat_val * 100, 1)}%）' if _nat_val is not None else ''
-        _SHORT_LAPSE_SET = {'1ヶ月未満', '1〜2ヶ月', '2〜3ヶ月', '3〜6ヶ月'}
+        _SHORT_LAPSE_SET  = {'1ヶ月未満', '1〜2ヶ月', '2〜3ヶ月'}
+        _MEDIUM_LAPSE_SET = {'3〜6ヶ月', '半年〜1年未満'}
         if worst['label'] in _SHORT_LAPSE_SET:
             _q4_body = (
                 f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
@@ -685,12 +686,19 @@ def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_a
                 f'短期離反層は本来転換しやすい層のため、この結果は要注意。'
                 f'SMS訴求内容の見直しを優先的に検討してください。'
             )
+        elif worst['label'] in _MEDIUM_LAPSE_SET:
+            _q4_body = (
+                f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
+                f'来店転換率{worst["visitRate"]}%{_nat_str}。'
+                f'中期離反層への再来店には、通常配信より特別感・限定感のある訴求が必要です。'
+                f'「会員限定」「期間限定」など特別感を前面に出したSMS本文とLPへの改善を検討してください。'
+            )
         else:
             _q4_body = (
                 f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
                 f'来店転換率{worst["visitRate"]}%{_nat_str}。'
-                f'離反期間が長い層は来店転換率が低くなる傾向があり、この結果は想定の範囲内。'
-                f'来店転換より「認知・接点の維持」を目標に、定期配信による関係再構築を推奨します。'
+                f'長期離反層の再来店には、特別感・限定感を強調した訴求とLP改善が不可欠です。'
+                f'定期配信で接点を維持しながら、来店意欲が高まった際に響く「特別なオファー」を用意することを推奨します。'
             )
         actions.append({
             'quad': 'q4',
@@ -805,7 +813,8 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None, visit_rat
     lines.append('')
 
     # ── 低反応層への対応
-    _SHORT_LAPSE = {'1ヶ月未満', '1〜2ヶ月', '2〜3ヶ月', '3〜6ヶ月'}
+    _SHORT_LAPSE  = {'1ヶ月未満', '1〜2ヶ月', '2〜3ヶ月'}
+    _MEDIUM_LAPSE = {'3〜6ヶ月', '半年〜1年未満'}
     _fmdays = min(meta.get('measurementDays', 7), 30)
     if worst_seg['visitRate'] < avg_visit_rate:
         lines.append('【低反応層への対応】')
@@ -820,20 +829,19 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None, visit_rat
                 f'本来再来店ハードルが低い短期離反層での低転換率は要注意。'
                 f'SMS訴求内容の見直しを優先的に検討してください。'
             )
+        elif _wlabel in _MEDIUM_LAPSE:
+            lines.append(
+                f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。'
+                f'中期離反層への再来店には、通常配信より特別感・限定感のある訴求が必要です。'
+                f'「会員限定」「期間限定」など特別感を前面に出したSMS本文とLPへの改善を検討してください。'
+            )
         else:
-            # 長期離反：低転換率は想定内。LP支持率（閲覧意欲）に着目する
-            if _wlpr >= avg_lp_rate:
-                lines.append(
-                    f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}だが、LP支持率{_wlpr}%と閲覧意欲は全体平均以上を維持している。'
-                    f'離反期間が長い層への配信は「来店転換」より「認知・関心の再醸成」が主目的。'
-                    f'定期的な接触を継続し、来店意欲が高まった際の第一想起を狙う戦略を推奨する。'
-                )
-            else:
-                lines.append(
-                    f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。離反期間が長いほど転換率が低下する傾向は全国的に見られ、今回の結果は想定の範囲内。'
-                    f'単回配信での即時来店より、定期的な情報提供による関係再構築を優先し、'
-                    f'まずはLP閲覧率の向上（認知維持）を中間目標として設定することを推奨する。'
-                )
+            # 長期離反：低転換率は想定内。特別感ある訴求とLP改善が鍵
+            lines.append(
+                f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。離反期間が長いほど転換率が低下する傾向は全国的に見られ、今回の結果は想定の範囲内。'
+                f'長期離反層の再来店には、特別感・限定感を強調した訴求とLP改善が不可欠です。'
+                f'定期配信で接点を維持しながら、来店意欲が高まった際に響く「特別なオファー」を用意することを推奨します。'
+            )
         lines.append('')
 
     # ── 次回提案
