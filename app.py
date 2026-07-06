@@ -137,6 +137,31 @@ with col_c:
     )
 
 # ════════════════════════════════════════════
+# STEP 4 : SMS本文チェック（手動選択）
+# ════════════════════════════════════════════
+st.markdown('<div class="section-title">STEP 4 ─ SMS本文チェック（手動選択）</div>', unsafe_allow_html=True)
+st.caption('KOレポートから自動判定が難しい項目を選択してください。「自動判定」にすると本文テキストから推定します。')
+
+col_s, col_k = st.columns(2)
+with col_s:
+    _store_sel = st.radio(
+        '店名の記載',
+        options=['自動判定', '有', '無'],
+        horizontal=True,
+        help='SMS本文に店名が記載されているか',
+    )
+with col_k:
+    _customer_sel = st.radio(
+        'お客様名の記載',
+        options=['自動判定', '有', '無'],
+        horizontal=True,
+        help='SMS本文にお客様の個人名が差し込まれているか',
+    )
+
+store_name_status    = None if _store_sel    == '自動判定' else _store_sel
+customer_name_status = None if _customer_sel == '自動判定' else _customer_sel
+
+# ════════════════════════════════════════════
 # 生成ボタン
 # ════════════════════════════════════════════
 st.divider()
@@ -166,13 +191,15 @@ if generate_btn and xlsx_file is not None:
                 image_path     = save_upload(lp_image_file,  os.path.splitext(lp_image_file.name)[1] if lp_image_file else '.jpg')
 
                 html = generate_report_core(
-                    xlsx_path          = xlsx_path,
-                    scroll_csv_path    = scroll_path,
-                    attention_csv_path = attention_path,
-                    image_path         = image_path,
-                    machines           = int(machines),
-                    campaign_type      = campaign_type if campaign_names else None,
-                    script_dir         = SCRIPT_DIR,
+                    xlsx_path             = xlsx_path,
+                    scroll_csv_path       = scroll_path,
+                    attention_csv_path    = attention_path,
+                    image_path            = image_path,
+                    machines              = int(machines),
+                    campaign_type         = campaign_type if campaign_names else None,
+                    script_dir            = SCRIPT_DIR,
+                    store_name_status     = store_name_status,
+                    customer_name_status  = customer_name_status,
                 )
 
             # 出力ファイル名を 店名_ID.html 形式で決定

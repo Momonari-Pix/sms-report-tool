@@ -666,6 +666,8 @@ def generate_report_core(
     campaign_type=None,
     template_path=None,
     script_dir=None,
+    store_name_status=None,    # '有' / '無' / None（自動判定）
+    customer_name_status=None, # '有' / '無' / None（自動判定）
 ):
     """
     レポートHTMLを生成して文字列で返す。
@@ -744,6 +746,26 @@ def generate_report_core(
     # SMS本文分析
     if xlsx_path and meta.get('smsText'):
         sms_analysis = analyze_sms(meta['smsText'], store_name=meta.get('store', ''))
+        # 手動選択値でoverride（'有'→ok / '無'→na）
+        for check in sms_analysis['checks']:
+            if check['label'] == '店名の記載' and store_name_status is not None:
+                if store_name_status == '有':
+                    check['status'] = 'ok'
+                    check['detail'] = '店名が記載されており、どこからのSMSか明確です'
+                else:
+                    check['status'] = 'na'
+                    check['detail'] = '店名の記載は確認できません'
+            elif check['label'] == 'お客様名の記載' and customer_name_status is not None:
+                if customer_name_status == '有':
+                    check['status'] = 'ok'
+                    check['detail'] = 'お客様名が差し込まれており承認欲求に働きかけています'
+                else:
+                    check['status'] = 'na'
+                    check['detail'] = '個人名差し込みは確認できません（KOレポートからは判定不可）'
+        # スコア再計算
+        warn_count = sum(1 for c in sms_analysis['checks'] if c['status'] == 'warn')
+        na_count   = sum(1 for c in sms_analysis['checks'] if c['status'] == 'na')
+        sms_analysis['score'] = 'review' if warn_count >= 3 else ('caution' if (warn_count > 0 or na_count > 0) else 'good')
         html = inject_sms_analysis(html, meta['smsText'], sms_analysis)
 
     # KPI・ヘッダー

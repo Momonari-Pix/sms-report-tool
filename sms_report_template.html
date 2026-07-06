@@ -557,6 +557,10 @@
       <label>配信日時</label>
       <span id="hf-datetime">―</span>
     </div>
+    <div class="hf" id="hf-campaign-type-wrap" style="display:none">
+      <label>キャンペーンタイプ</label>
+      <span id="hf-campaign-type">―</span>
+    </div>
 
   </div>
 </div>
@@ -956,6 +960,10 @@ document.getElementById('gen-date').textContent = '作成日：' + new Date().to
   const d = new Date(DATA.datetime);
   const ds = d.toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
   document.getElementById('hf-datetime').textContent   = ds;
+  if (DATA.campaignType) {
+    document.getElementById('hf-campaign-type').textContent = DATA.campaignType;
+    document.getElementById('hf-campaign-type-wrap').style.display = '';
+  }
 })();
 function syncTitle() {}
 
