@@ -629,6 +629,14 @@ def lp_actions_from_heatmap(image_path, scroll_depths):
     return []
 
 
+_SPECIAL_FEEL_KEYWORDS = {'限定', '特別', 'プレミアム', 'VIP', '特典', 'シークレット', '会員'}
+
+def _sms_has_special_feel(meta):
+    """SMS本文に既に特別感・限定感のキーワードが含まれるか判定"""
+    text = meta.get('smsText', '') or ''
+    return any(kw in text for kw in _SPECIAL_FEEL_KEYWORDS)
+
+
 def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_actions=None, visit_rate_data=None):
     """実データから「次の一手」アクション提案リストを自動生成"""
     actions = []
@@ -687,19 +695,35 @@ def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_a
                 f'SMS訴求内容の見直しを優先的に検討してください。'
             )
         elif worst['label'] in _MEDIUM_LAPSE_SET:
-            _q4_body = (
-                f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
-                f'来店転換率{worst["visitRate"]}%{_nat_str}。'
-                f'中期離反層への再来店には、通常配信より特別感・限定感のある訴求が必要です。'
-                f'「会員限定」「期間限定」など特別感を前面に出したSMS本文とLPへの改善を検討してください。'
-            )
+            if _sms_has_special_feel(meta):
+                _q4_body = (
+                    f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
+                    f'来店転換率{worst["visitRate"]}%{_nat_str}。'
+                    f'今回のSMS本文には既に限定感のある訴求が含まれています。'
+                    f'SMS訴求の方向性は維持しつつ、LP内のCTA強化・特典内容の具体化など、LP側の改善を優先的に検討してください。'
+                )
+            else:
+                _q4_body = (
+                    f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
+                    f'来店転換率{worst["visitRate"]}%{_nat_str}。'
+                    f'中期離反層への再来店には、通常配信より特別感・限定感のある訴求が必要です。'
+                    f'「会員限定」「期間限定」など特別感を前面に出したSMS本文とLPへの改善を検討してください。'
+                )
         else:
-            _q4_body = (
-                f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
-                f'来店転換率{worst["visitRate"]}%{_nat_str}。'
-                f'長期離反層への配信は特別なタイミングに絞るからこそ、訴求内容の質が成否を左右します。'
-                f'「会員限定」「期間限定」など特別感・限定感を前面に出したSMS本文とLPへの改善を優先してください。'
-            )
+            if _sms_has_special_feel(meta):
+                _q4_body = (
+                    f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
+                    f'来店転換率{worst["visitRate"]}%{_nat_str}。'
+                    f'今回のSMS本文には既に限定感のある訴求が含まれています。'
+                    f'長期離反層への配信は内容の質が成否を左右するため、LP側のコンテンツ改善（特典の具体化・CTA強化）を優先してください。'
+                )
+            else:
+                _q4_body = (
+                    f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
+                    f'来店転換率{worst["visitRate"]}%{_nat_str}。'
+                    f'長期離反層への配信は特別なタイミングに絞るからこそ、訴求内容の質が成否を左右します。'
+                    f'「会員限定」「期間限定」など特別感・限定感を前面に出したSMS本文とLPへの改善を優先してください。'
+                )
         actions.append({
             'quad': 'q4',
             'title': f'▽ 低反応層 › {worst["label"]}離反（{worst["sent"]}名）：要優先対応',
@@ -830,18 +854,32 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None, visit_rat
                 f'SMS訴求内容の見直しを優先的に検討してください。'
             )
         elif _wlabel in _MEDIUM_LAPSE:
-            lines.append(
-                f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。'
-                f'中期離反層への再来店には、通常配信より特別感・限定感のある訴求が必要です。'
-                f'「会員限定」「期間限定」など特別感を前面に出したSMS本文とLPへの改善を検討してください。'
-            )
+            if _sms_has_special_feel(meta):
+                lines.append(
+                    f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。'
+                    f'今回のSMS本文には既に限定感のある訴求が含まれています。'
+                    f'SMS訴求の方向性は維持しつつ、LP内のCTA強化・特典内容の具体化など、LP側の改善を優先的に検討してください。'
+                )
+            else:
+                lines.append(
+                    f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。'
+                    f'中期離反層への再来店には、通常配信より特別感・限定感のある訴求が必要です。'
+                    f'「会員限定」「期間限定」など特別感を前面に出したSMS本文とLPへの改善を検討してください。'
+                )
         else:
             # 長期離反：低転換率は想定内。特別感ある訴求とLP改善が鍵
-            lines.append(
-                f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。離反期間が長いほど転換率が低下する傾向は全国的に見られ、今回の結果は想定の範囲内。'
-                f'長期離反層への配信は特別なタイミングに絞るからこそ、訴求内容の質が成否を左右します。'
-                f'「会員限定」「期間限定」など特別感・限定感を前面に出したSMS本文とLPへの改善を優先してください。'
-            )
+            if _sms_has_special_feel(meta):
+                lines.append(
+                    f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。離反期間が長いほど転換率が低下する傾向は全国的に見られ、今回の結果は想定の範囲内。'
+                    f'今回のSMS本文には既に限定感のある訴求が含まれています。'
+                    f'長期離反層への配信は内容の質が成否を左右するため、LP側のコンテンツ改善（特典の具体化・CTA強化）を優先してください。'
+                )
+            else:
+                lines.append(
+                    f'{_wlabel}離反層は来店転換率{_wvr}%{_fnat_str}。離反期間が長いほど転換率が低下する傾向は全国的に見られ、今回の結果は想定の範囲内。'
+                    f'長期離反層への配信は特別なタイミングに絞るからこそ、訴求内容の質が成否を左右します。'
+                    f'「会員限定」「期間限定」など特別感・限定感を前面に出したSMS本文とLPへの改善を優先してください。'
+                )
         lines.append('')
 
     # ── 次回提案
