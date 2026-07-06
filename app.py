@@ -44,11 +44,9 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # SMSターゲットファイルをglobで自動検出（ファイル名の揺れに対応）
 def find_target_file():
-    # 「SMS」を含む xlsx を探す
     hits = glob.glob(os.path.join(SCRIPT_DIR, 'SMS*.xlsx'))
     if hits:
         return hits[0]
-    # フォールバック：候補名リスト
     for name in ['SMSターゲット.xlsx', 'SMS対象.xlsx', 'sms_targets.xlsx']:
         p = os.path.join(SCRIPT_DIR, name)
         if os.path.exists(p):
@@ -56,6 +54,15 @@ def find_target_file():
     return None
 
 TARGET_FILE = os.path.join(SCRIPT_DIR, 'sms_targets.xlsx') if os.path.exists(os.path.join(SCRIPT_DIR, 'sms_targets.xlsx')) else find_target_file()
+
+# ── フォームリセット用カウンター初期化 ──────────
+if 'form_key' not in st.session_state:
+    st.session_state['form_key'] = 0
+
+def reset_form():
+    st.session_state['form_key'] += 1
+
+fk = st.session_state['form_key']  # ウィジェットキーのサフィックス
 
 # ── スタイル ──────────────────────────────────
 st.markdown("""
@@ -74,7 +81,7 @@ st.divider()
 
 # ── キャンペーンタイプ一覧を取得 ───────────────
 campaign_targets = []
-if os.path.exists(TARGET_FILE):
+if TARGET_FILE and os.path.exists(TARGET_FILE):
     campaign_targets = load_campaign_targets(TARGET_FILE)
 campaign_names = [ct['name'] for ct in campaign_targets]
 
@@ -87,6 +94,7 @@ xlsx_file = st.file_uploader(
     'KO XLSX（送信結果）',
     type=['xlsx'],
     help='20260609_1200_45889_KO.xlsx のような KO フォーマットのファイル',
+    key=f'xlsx_{fk}',
 )
 
 # ════════════════════════════════════════════
@@ -100,18 +108,21 @@ with col1:
         'Scroll CSV（到達率）',
         type=['csv'],
         help='Clarity の Scroll 深度 CSV',
+        key=f'scroll_{fk}',
     )
 with col2:
     attention_file = st.file_uploader(
         'Attention CSV（注目割合）',
         type=['csv'],
         help='Clarity の Attention CSV',
+        key=f'attention_{fk}',
     )
 
 lp_image_file = st.file_uploader(
     'LP画像（スクリーンショット）',
     type=['jpg', 'jpeg', 'png', 'webp'],
     help='スマホで撮影した LP のスクリーンショット等',
+    key=f'image_{fk}',
 )
 
 # ════════════════════════════════════════════
@@ -128,12 +139,14 @@ with col_m:
         value=500,
         step=1,
         help='店舗の設置台数（パチンコ＋スロット合計）',
+        key=f'machines_{fk}',
     )
 with col_c:
     campaign_type = st.selectbox(
         'キャンペーンタイプ',
         options=campaign_names if campaign_names else ['（SMSターゲット.xlsx が見つかりません）'],
         help='SMSターゲット.xlsx に定義されているキャンペーン種別',
+        key=f'campaign_{fk}',
     )
 
 # ════════════════════════════════════════════
@@ -145,23 +158,23 @@ st.caption('KOレポートから自動判定が難しい項目を選択してく
 col_s1, col_s2 = st.columns(2)
 with col_s1:
     _store_sel = st.radio('店名の記載', ['自動判定','有','無'], horizontal=True,
-                          help='SMS本文に店名が記載されているか')
+                          help='SMS本文に店名が記載されているか', key=f'store_{fk}')
 with col_s2:
     _customer_sel = st.radio('お客様名の記載', ['自動判定','有','無'], horizontal=True,
-                             help='SMS本文にお客様の個人名が差し込まれているか')
+                             help='SMS本文にお客様の個人名が差し込まれているか', key=f'customer_{fk}')
 
 col_s3, col_s4 = st.columns(2)
 with col_s3:
     _warmth_sel = st.radio('お店の思い・温かみ', ['自動判定','有','無'], horizontal=True,
-                           help='感謝・期待感など温かみのある表現があるか')
+                           help='感謝・期待感など温かみのある表現があるか', key=f'warmth_{fk}')
 with col_s4:
     _generic_sel = st.radio('汎用フレーズのみ', ['自動判定','有','無'], horizontal=True,
-                            help='有＝汎用フレーズのみで具体性がない（要改善）')
+                            help='有＝汎用フレーズのみで具体性がない（要改善）', key=f'generic_{fk}')
 
 col_s5, _ = st.columns(2)
 with col_s5:
     _hook_sel = st.radio('興味喚起フック', ['自動判定','有','無'], horizontal=True,
-                         help='数字・限定・固有ワードなどフックとなる表現があるか')
+                         help='数字・限定・固有ワードなどフックとなる表現があるか', key=f'hook_{fk}')
 
 store_name_status    = None if _store_sel    == '自動判定' else _store_sel
 customer_name_status = None if _customer_sel == '自動判定' else _customer_sel
@@ -170,10 +183,14 @@ generic_status       = None if _generic_sel  == '自動判定' else _generic_sel
 hook_status          = None if _hook_sel     == '自動判定' else _hook_sel
 
 # ════════════════════════════════════════════
-# 生成ボタン
+# ボタン行（生成 ＋ リセット）
 # ════════════════════════════════════════════
 st.divider()
-generate_btn = st.button('🚀 レポートを生成する', type='primary', disabled=(xlsx_file is None))
+btn_col1, btn_col2 = st.columns([3, 1])
+with btn_col1:
+    generate_btn = st.button('🚀 レポートを生成する', type='primary', disabled=(xlsx_file is None))
+with btn_col2:
+    st.button('🔄 リセット', on_click=reset_form)
 
 if xlsx_file is None:
     st.info('KO XLSX をアップロードするとレポートを生成できます。')
@@ -183,14 +200,13 @@ if generate_btn and xlsx_file is not None:
     with st.spinner('レポートを生成中...'):
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
-                # ファイルを一時ディレクトリに保存
                 def save_upload(uploaded, suffix):
                     if uploaded is None:
                         return None
                     path = os.path.join(tmpdir, f'upload{suffix}')
                     with open(path, 'wb') as f:
                         f.write(uploaded.read())
-                    uploaded.seek(0)  # 再読み込み可能にリセット
+                    uploaded.seek(0)
                     return path
 
                 xlsx_path      = save_upload(xlsx_file,      '.xlsx')
@@ -213,18 +229,15 @@ if generate_btn and xlsx_file is not None:
                     hook_status           = hook_status,
                 )
 
-            # 出力ファイル名を 店名_ID.html 形式で決定
             import re
             send_id_match = re.search(r'sendId:\s*[\'"](\d+)[\'"]', html)
             store_match   = re.search(r'store:\s*[\'"]([^\'"]+)[\'"]', html)
             send_id   = send_id_match.group(1) if send_id_match else 'output'
             store_raw = store_match.group(1) if store_match else ''
-            # ファイル名に使えない文字を除去
             store_safe = re.sub(r'[\\/:*?"<>|\s]', '_', store_raw)
             filename = f'{store_safe}_{send_id}.html' if store_safe else f'report_{send_id}.html'
 
             st.success(f'✅ レポート生成完了！（{len(html) // 1024} KB）')
-
             st.download_button(
                 label     = f'📥 {filename} をダウンロード',
                 data      = html.encode('utf-8'),
