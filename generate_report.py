@@ -543,6 +543,263 @@ def analyze_sms(text, store_name=''):
     return {'score': score, 'checks': checks, 'charCount': char_count}
 
 
+def analyze_heatmap_red_position(image_path):
+    """LP画像のヒートマップから赤エリアの縦位置（%）を返す。
+    赤ピクセル（R高・G低・B低）の重心をY軸方向で計算。
+    検出できない場合は None を返す。
+    """
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+    try:
+        img = Image.open(image_path).convert('RGB')
+        w, h = img.size
+        # 横幅を40pxに縮小して処理速度を上げる
+        small = img.resize((40, h), Image.LANCZOS)
+        pixels = small.load()
+        row_weights = []
+        for y in range(h):
+            red_count = sum(
+                1 for x in range(40)
+                if pixels[x, y][0] > 160 and pixels[x, y][1] < 80 and pixels[x, y][2] < 80
+            )
+            row_weights.append(red_count)
+        total = sum(row_weights)
+        if total == 0:
+            return None
+        center_y = sum(y * row_weights[y] for y in range(h)) / total
+        return round(center_y / h * 100)  # 0〜100の%
+    except Exception:
+        return None
+
+
+def lp_actions_from_scroll(scroll_depths):
+    """Scroll到達率データからLPの長さに関する改善提案を生成。
+    到達率30%以下 かつ その深度が50%以下（残り半分以上放棄されている）の場合に提案。
+    """
+    if not scroll_depths:
+        return []
+    sorted_d = sorted(scroll_depths, key=lambda x: int(str(x['depth']).replace('%', '')))
+    for d in sorted_d:
+        depth_val = int(str(d['depth']).replace('%', ''))
+        reach = d.get('pct', 100)
+        if reach <= 30 and depth_val <= 50:
+            return [{
+                'quad': 'q4',
+                'title': '📏 LP長すぎ検出：短縮を推奨',
+                'body': (f'スクロール深度{depth_val}%地点で到達率が{reach:.1f}%まで低下しており、'
+                         f'LPの下半分以上がほぼ閲覧されていない状態です。'
+                         f'重要な情報を上部に集約し、より短いLPへの変更を検討してください。'),
+            }]
+    return []
+
+
+def lp_actions_from_heatmap(image_path, scroll_depths):
+    """ヒートマップ赤エリア位置の到達率が70%未満の場合に上部移動を提案。"""
+    if not image_path or not scroll_depths:
+        return []
+    red_pct = analyze_heatmap_red_position(image_path)
+    if red_pct is None:
+        return []
+    # scroll_depthsの中で最も近い深度を探す
+    sorted_d = sorted(scroll_depths, key=lambda x: int(str(x['depth']).replace('%', '')))
+    best = min(sorted_d, key=lambda x: abs(int(str(x['depth']).replace('%', '')) - red_pct))
+    reach = best.get('pct', 100)
+    depth_val = int(str(best['depth']).replace('%', ''))
+    if reach < 70:
+        return [{
+            'quad': 'q3',
+            'title': f'🔥 注目エリアの到達率が低下：上部移動を推奨',
+            'body': (f'ヒートマップで最も注目されているエリア（LP上から約{red_pct}%付近）の'
+                     f'スクロール到達率が{reach:.1f}%にとどまっています。'
+                     f'このコンテンツをLPのより上部に移動することで、より多くのユーザーへのリーチが期待できます。'),
+        }]
+    return []
+
+
+def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_actions=None):
+    """実データから「次の一手」アクション提案リストを自動生成"""
+    actions = []
+    if not segments:
+        return actions
+
+    total_sent   = sum(s['sent']   for s in segments)
+    total_visits = sum(s['visits'] for s in segments)
+    total_lp     = sum(s['lp']     for s in segments)
+    avg_visit_rate = round(total_visits / total_sent * 100, 1) if total_sent else 0
+    avg_lp_rate    = round(total_lp    / total_sent * 100, 1) if total_sent else 0
+
+    q1_segs = [s for s in segments if s['tag'] == 'q1']
+    q3_segs = [s for s in segments if s['tag'] == 'q3']
+    q4_segs = [s for s in segments if s['tag'] == 'q4']
+
+    # ① 優良反応層（q1）
+    if q1_segs:
+        labels = '・'.join(s['label'] for s in q1_segs)
+        total_q1 = sum(s['sent'] for s in q1_segs)
+        best = max(q1_segs, key=lambda s: s['visitRate'])
+        actions.append({
+            'quad': 'q1',
+            'title': f'★ 優良反応層（{labels}）：継続・追加配信',
+            'body': (f'来店転換率・LP支持率ともに全体平均を上回る優良セグメント（計{total_q1}名）。'
+                     f'最高来店転換率は{best["label"]}の{best["visitRate"]}%。'
+                     f'次回も同条件で継続配信し、成功パターンを積み上げることを推奨。'),
+        })
+
+    # ② 関心限定層（q3）：LPは見るが来店しない
+    if q3_segs:
+        labels = '・'.join(s['label'] for s in q3_segs)
+        q3_total = sum(s['sent'] for s in q3_segs)
+        actions.append({
+            'quad': 'q3',
+            'title': f'△ 関心限定層（{labels}）：来店転換の底上げ',
+            'body': (f'LP閲覧率は平均以上ながら来店転換率が低いセグメント（計{q3_total}名）。'
+                     f'LP内容と店頭の一致度を高め、「今すぐ行く理由」を強化することで改善が期待できます。'),
+        })
+
+    # ③ 低反応層（q4）：最も来店率が低いセグメントを抽出
+    if q4_segs:
+        worst = min(q4_segs, key=lambda s: s['visitRate'])
+        actions.append({
+            'quad': 'q4',
+            'title': f'▽ 低反応層 › {worst["label"]}離反（{worst["sent"]}名）：要優先対応',
+            'body': (f'{worst["sent"]}名送信に対しLP到達{worst["lp"]}名（{worst["lpRate"]}%）、'
+                     f'来店転換率{worst["visitRate"]}%と全体平均（{avg_visit_rate}%）を下回る。'
+                     f'SMS本文の見直しや送信時間帯の変更を検討してください。'),
+        })
+
+    # ④ シミュレーション提案（常時）
+    actions.append({
+        'quad': 'sim',
+        'title': '📋 ターゲット条件の緩和提案',
+        'body': ('今回の絞り込み条件を緩和し、離反期間をより広げることで追加来店が見込めます。'
+                 'シミュレーションセクションをご確認ください。'),
+    })
+
+    # ⑤ SMS品質：要改善（warn）が2つ以上の場合に本文見直し提案
+    if sms_analysis:
+        # 文字数（info）を除く5項目のみ対象
+        target_checks = [c for c in sms_analysis.get('checks', [])
+                         if c['status'] != 'info']
+        warn_items = [c['label'] for c in target_checks if c['status'] == 'warn']
+        na_items   = [c['label'] for c in target_checks if c['status'] == 'na']
+        # warnが2つ以上、またはwarn+naが合計2つ以上の場合に提案
+        if len(warn_items) >= 2 or (len(warn_items) + len(na_items)) >= 2:
+            problem_labels = warn_items + na_items
+            # 各項目の改善ヒントを生成
+            hints = []
+            hint_map = {
+                '店名の記載':      '店名を必ず冒頭に入れ、迷惑SMS誤認を防ぎましょう',
+                'お客様名の記載':  '個人名差し込みで開封率・反応率が上がります',
+                'お店の思い・温かみ': '感謝や期待感を一言添えると読み手の心に刺さります',
+                '汎用フレーズのみ': '「何があるの？」と思わせる具体的なキーワードを追加しましょう',
+                '興味喚起フック':  '数字・限定・固有ワードで「気になる」を演出してください',
+            }
+            for label in problem_labels:
+                if label in hint_map:
+                    hints.append(f'・{label}：{hint_map[label]}')
+            body = (f'SMS本文チェックで{len(problem_labels)}項目の要改善・要確認が検出されました。'
+                    f'次回配信前に本文の見直しを推奨します。\n' + '\n'.join(hints))
+            actions.append({
+                'quad': 'q4',
+                'title': f'✏️ SMS本文の見直し提案（{len(problem_labels)}項目要対応）',
+                'body': body,
+            })
+
+    # ⑥ LP分析からの追加提案（スクロール到達率・ヒートマップ）
+    if extra_lp_actions:
+        actions.extend(extra_lp_actions)
+
+    return actions
+
+
+def generate_findings(segments, age_segments, meta, sms_analysis=None):
+    """実データから所見・コメントテキストを自動生成"""
+    if not segments:
+        return '（データが不足しているため所見を生成できません）'
+
+    total_sent   = sum(s['sent']   for s in segments)
+    total_visits = sum(s['visits'] for s in segments)
+    total_lp     = sum(s['lp']     for s in segments)
+    avg_visit_rate = round(total_visits / total_sent * 100, 1) if total_sent else 0
+    avg_lp_rate    = round(total_lp    / total_sent * 100, 1) if total_sent else 0
+
+    best_seg  = max(segments, key=lambda s: s['visitRate'])
+    worst_seg = min(segments, key=lambda s: s['visitRate'])
+
+    store = meta.get('store', '今回の店舗')
+    lines = []
+
+    # ── 全体総括
+    lines.append('【全体総括】')
+    if age_segments:
+        best_age = max(age_segments, key=lambda a: a['visitRate'])
+        lines.append(
+            f'{store}の今回の配信では、{best_age["label"]}・{best_seg["label"]}離反層が優良反応層に位置し、'
+            f'来店転換率・LP支持率ともに全体平均（来店{avg_visit_rate}% / LP{avg_lp_rate}%）を上回る結果となった。'
+        )
+    else:
+        lines.append(
+            f'{store}の今回の配信では、{best_seg["label"]}離反層が最も高い来店転換率'
+            f'（{best_seg["visitRate"]}%）を示した。'
+        )
+
+    lines.append('')
+
+    # ── LP支持率
+    lines.append('【LP支持率について】')
+    if age_segments and len(age_segments) >= 2:
+        max_lp_age = max(age_segments, key=lambda a: a['lpRate'])
+        min_lp_age = min(age_segments, key=lambda a: a['lpRate'])
+        diff = round(max_lp_age['lpRate'] - min_lp_age['lpRate'], 1)
+        if diff > 8:
+            lines.append(
+                f'LP支持率はSMS本文の件名・冒頭一文・CTAの訴求力に大きく左右される。'
+                f'{max_lp_age["label"]}のLP支持率（{max_lp_age["lpRate"]}%）に対して'
+                f'{min_lp_age["label"]}（{min_lp_age["lpRate"]}%）に{diff}ポイントの差が見られることから、'
+                f'年代別にSMSメッセージを最適化することで支持率の底上げが期待できる。'
+            )
+        else:
+            lines.append(f'全体LP支持率は{avg_lp_rate}%で年代間の差は比較的小さく、安定した訴求ができている。')
+    else:
+        lines.append(f'全体LP支持率は{avg_lp_rate}%。SMS本文の件名・冒頭一文の最適化でさらなる改善が見込める。')
+
+    lines.append('')
+
+    # ── 低反応層への対応
+    if worst_seg['visitRate'] < avg_visit_rate:
+        lines.append('【低反応層への対応】')
+        lines.append(
+            f'{worst_seg["label"]}離反層は来店転換率{worst_seg["visitRate"]}%と平均（{avg_visit_rate}%）を下回る。'
+            f'この層向けに離反期間に合わせた訴求文面への変更や、送信時間帯の最適化を推奨する。'
+        )
+        lines.append('')
+
+    # ── 次回提案
+    lines.append('【次回提案】')
+    lines.append(f'・{best_seg["label"]}離反層を中心とした継続配信')
+    if worst_seg['label'] != best_seg['label']:
+        lines.append(f'・{worst_seg["label"]}離反層向けの専用文面テスト配信')
+    lines.append('・ターゲット条件の緩和（離反期間の段階的な拡大）')
+    if sms_analysis and sms_analysis.get('score') in ('caution', 'review'):
+        lines.append('・SMS本文の品質改善（要確認項目の解消）')
+
+    return '\n'.join(lines)
+
+
+def inject_actions(html, actions):
+    """DATAオブジェクトのactionsを実データに差し替え"""
+    new_str = 'actions: ' + json.dumps(actions, ensure_ascii=False, indent=4) + ','
+    pattern = r'actions: \[.*?\],'
+    return re.sub(pattern, new_str, html, flags=re.DOTALL)
+
+
+def inject_findings(html, findings_text):
+    """所見・コメントのプレースホルダーを実データに差し替え"""
+    return html.replace('<!-- MEMO_CONTENT_PLACEHOLDER -->', findings_text)
+
+
 def inject_sms_analysis(html, sms_text, analysis):
     """SMS本文と分析結果をDATAオブジェクトのプレースホルダーに注入"""
     # json.dumpsで確実にエスケープ
@@ -666,8 +923,11 @@ def generate_report_core(
     campaign_type=None,
     template_path=None,
     script_dir=None,
-    store_name_status=None,    # '有' / '無' / None（自動判定）
-    customer_name_status=None, # '有' / '無' / None（自動判定）
+    store_name_status=None,    # '有'→ok / '無'→warn / None（自動判定）
+    customer_name_status=None, # '有'→ok / '無'→na  / None（自動判定）
+    warmth_status=None,        # '有'→ok / '無'→warn / None（自動判定）
+    generic_status=None,       # '有'→warn（汎用のみ） / '無'→ok / None（自動判定）
+    hook_status=None,          # '有'→ok / '無'→warn / None（自動判定）
 ):
     """
     レポートHTMLを生成して文字列で返す。
@@ -746,27 +1006,51 @@ def generate_report_core(
     # SMS本文分析
     if xlsx_path and meta.get('smsText'):
         sms_analysis = analyze_sms(meta['smsText'], store_name=meta.get('store', ''))
-        # 手動選択値でoverride（'有'→ok / '無'→na）
+        # 手動選択値でoverride
+        _overrides = {
+            '店名の記載': (store_name_status, {
+                '有': ('ok',   '店名が記載されており、どこからのSMSか明確です'),
+                '無': ('warn', '店名がないと迷惑SMSと勘違いされる可能性があります'),
+            }),
+            'お客様名の記載': (customer_name_status, {
+                '有': ('ok',   'お客様名が差し込まれており承認欲求に働きかけています'),
+                '無': ('na',   '個人名差し込みは確認できません（KOレポートからは判定不可）'),
+            }),
+            'お店の思い・温かみ': (warmth_status, {
+                '有': ('ok',   'お店の気持ちが感じられる文章です'),
+                '無': ('warn', '作業的・短すぎる文章はお客様の興味を惹きにくい場合があります'),
+            }),
+            '汎用フレーズのみ': (generic_status, {
+                '有': ('warn', '汎用フレーズだけで具体的なフックがありません。「何があるの？」と思わせる一言を追加しましょう'),
+                '無': ('ok',   '汎用フレーズに依存しない文章構成です'),
+            }),
+            '興味喚起フック': (hook_status, {
+                '有': ('ok',   '数字・固有フレーズで「気になる」を演出できています'),
+                '無': ('warn', 'URLを開きたくなる具体的なフックがありません'),
+            }),
+        }
         for check in sms_analysis['checks']:
-            if check['label'] == '店名の記載' and store_name_status is not None:
-                if store_name_status == '有':
-                    check['status'] = 'ok'
-                    check['detail'] = '店名が記載されており、どこからのSMSか明確です'
-                else:
-                    check['status'] = 'na'
-                    check['detail'] = '店名の記載は確認できません'
-            elif check['label'] == 'お客様名の記載' and customer_name_status is not None:
-                if customer_name_status == '有':
-                    check['status'] = 'ok'
-                    check['detail'] = 'お客様名が差し込まれており承認欲求に働きかけています'
-                else:
-                    check['status'] = 'na'
-                    check['detail'] = '個人名差し込みは確認できません（KOレポートからは判定不可）'
+            override_val, status_map = _overrides.get(check['label'], (None, {}))
+            if override_val is not None and override_val in status_map:
+                check['status'], check['detail'] = status_map[override_val]
         # スコア再計算
         warn_count = sum(1 for c in sms_analysis['checks'] if c['status'] == 'warn')
         na_count   = sum(1 for c in sms_analysis['checks'] if c['status'] == 'na')
         sms_analysis['score'] = 'review' if warn_count >= 3 else ('caution' if (warn_count > 0 or na_count > 0) else 'good')
         html = inject_sms_analysis(html, meta['smsText'], sms_analysis)
+
+    # 次の一手・所見コメント（自動生成）
+    if xlsx_path and segments:
+        sms_analysis_ref = sms_analysis if (xlsx_path and meta.get('smsText')) else None
+        # LP分析からの追加提案
+        extra_lp = []
+        extra_lp.extend(lp_actions_from_scroll(scroll_depths))
+        extra_lp.extend(lp_actions_from_heatmap(image_path, scroll_depths))
+        actions  = generate_actions(segments, age_segments, meta, sms_analysis_ref,
+                                    extra_lp_actions=extra_lp)
+        findings = generate_findings(segments, age_segments, meta, sms_analysis_ref)
+        html = inject_actions(html, actions)
+        html = inject_findings(html, findings)
 
     # KPI・ヘッダー
     if xlsx_path:
