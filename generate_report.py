@@ -846,11 +846,62 @@ def generate_findings(segments, age_segments, meta, sms_analysis=None, visit_rat
 
     # ── 次回提案
     lines.append('【次回提案】')
-    lines.append(f'・{best_seg["label"]}離反層を中心とした継続配信')
+    lines.append('')
+
+    # ◆ 離反期間別
+    lines.append('◆ 離反期間別')
+    _best_diff = round(best_seg['visitRate'] - avg_visit_rate, 1)
+    _best_vs   = f'全体平均より{_best_diff}pt高い' if _best_diff >= 0 else f'全体平均より{abs(_best_diff)}pt低い'
+    lines.append(
+        f'・{best_seg["label"]}離反層（来店転換率{best_seg["visitRate"]}%、{_best_vs}）：'
+        f'好反応を維持。次回も中心ターゲットとして継続配信を推奨します。'
+    )
     if worst_seg['label'] != best_seg['label']:
-        lines.append(f'・{worst_seg["label"]}離反層向けの専用文面テスト配信')
-    lines.append('・ターゲット条件の緩和（離反期間の段階的な拡大）')
+        _worst_diff = round(worst_seg['visitRate'] - avg_visit_rate, 1)
+        _worst_vs   = f'全体平均より{abs(_worst_diff)}pt低い' if _worst_diff < 0 else f'全体平均と同水準'
+        if worst_seg['label'] in _SHORT_LAPSE:
+            _w_action = 'SMS訴求内容の早急な見直しを優先してください。'
+        elif worst_seg['label'] in _MEDIUM_LAPSE:
+            _w_action = '特別感・限定感のある本文・LP内容への改善を検討してください。'
+        else:
+            _w_action = '特別なタイミングに絞った配信で、訴求内容の質向上を優先してください。'
+        lines.append(
+            f'・{worst_seg["label"]}離反層（来店転換率{worst_seg["visitRate"]}%、{_worst_vs}）：{_w_action}'
+        )
+    lines.append('・ターゲット条件の緩和（離反期間の段階的な拡大）も引き続き検討してください。')
+    lines.append('')
+
+    # ◆ 年代別
+    if age_segments:
+        lines.append('◆ 年代別')
+        q1_ages = [a for a in age_segments if a.get('tag') == 'q1']
+        q2_ages = [a for a in age_segments if a.get('tag') == 'q2']
+        q3_ages = [a for a in age_segments if a.get('tag') == 'q3']
+        q4_ages = [a for a in age_segments if a.get('tag') == 'q4']
+        for a in q1_ages:
+            lines.append(
+                f'・{a["label"]}（来店転換率{a["visitRate"]}%・LP支持率{a["lpRate"]}%、ともに全体平均以上）：'
+                f'優良反応層。引き続き継続配信を推奨します。'
+            )
+        for a in q2_ages:
+            lines.append(
+                f'・{a["label"]}（来店転換率{a["visitRate"]}%は全体平均以上、LP支持率{a["lpRate"]}%は平均以下）：'
+                f'SMSの件名・冒頭文を改善してLP到達率を底上げすることで、さらなる来店増が見込めます。'
+            )
+        for a in q3_ages:
+            lines.append(
+                f'・{a["label"]}（LP支持率{a["lpRate"]}%は全体平均以上、来店転換率{a["visitRate"]}%は平均以下）：'
+                f'LPへの関心はあるが来店に繋がっていません。LP内のCTA強化や特典訴求の見直しを検討してください。'
+            )
+        for a in q4_ages:
+            lines.append(
+                f'・{a["label"]}（来店転換率{a["visitRate"]}%・LP支持率{a["lpRate"]}%、ともに全体平均以下）：'
+                f'SMS本文とLP両方の改善が必要です。この年代に響く訴求内容への見直しを検討してください。'
+            )
+        lines.append('')
+
     if sms_analysis and sms_analysis.get('score') in ('caution', 'review'):
+        lines.append('◆ SMS品質')
         lines.append('・SMS本文の品質改善（要確認項目の解消）')
 
     return '\n'.join(lines)
