@@ -458,13 +458,20 @@ def analyze_sms(text, store_name=''):
                   else '店名がないと迷惑SMSと勘違いされる可能性があります'
     })
 
-    # ② お客様氏名（個人名差し込みのみ検出。「お客様」等の汎用語は除外）
+    # ② お客様氏名（個人名差し込みのみ検出。汎用語「〇〇様」は除外）
     personal_name_patterns = ['{', '【氏名】', '[氏名]', '氏名', 'お名前', '○○様', '〇〇様', '◯◯様']
     has_personal_name = any(p in text for p in personal_name_patterns)
-    # 「様」が「お客様」以外で使われている場合（実名差し込み）も検出
+    # 非個人名の「様」表現を除去してから残った「様」で個人名を判定
+    # 例: 「吉田健様\n会員様限定」→会員様を除去→「吉田健様」が残り個人名あり と判定
     if not has_personal_name:
-        import re as _re
-        has_personal_name = bool(_re.search(r'(?<!客)様', text))
+        # ステップ1: 非個人名の「様」パターンを除去
+        non_personal_sama = r'(?:お客|会員|皆|みなさ|ご来店|ご利用|ご参加|ご登録|来店|ご愛顧|御愛顧)様'
+        text_cleaned = re.sub(non_personal_sama, '', text)
+        # ステップ2: 「様」を含む複合語（模様・有様・神様・仏様）を除去
+        text_cleaned = re.sub(r'模様|有様|神様|仏様', '', text_cleaned)
+        # ステップ3: 直前が漢字/カタカナ(名前らしい文字)で直後が「々子式相な」でなければ個人名と判定
+        # 「の様な」「した時の様な」は直前が平仮名なのでマッチしない
+        has_personal_name = bool(re.search(r'[一-龯ァ-ヶ]{1,8}様(?![々子式相な])', text_cleaned))
     checks.append({
         'label': 'お客様名の記載',
         'status': 'ok' if has_personal_name else 'na',

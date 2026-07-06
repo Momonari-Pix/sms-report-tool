@@ -68,13 +68,22 @@
   .print-btn:hover { background: rgba(255,255,255,0.25); }
   .generated-at-txt { font-size: 12px; color: rgba(255,255,255,0.7); }
   .header-fields {
-    display: flex; gap: 0; flex-wrap: wrap;
-    background: rgba(255,255,255,0.08);
-    border-radius: 8px 8px 0 0;
-    padding: 14px 20px;
     margin: 0 -32px;
     border-top: 1px solid rgba(255,255,255,0.15);
   }
+  .hf-row {
+    display: flex; gap: 0;
+    background: rgba(255,255,255,0.08);
+    padding: 12px 20px;
+  }
+  .hf-row-2 {
+    display: flex; gap: 0; align-items: center;
+    background: rgba(255,255,255,0.04);
+    padding: 10px 20px;
+    border-top: 1px solid rgba(255,255,255,0.10);
+  }
+  .hf-row-2 .hf:only-child { border-right: none; }
+  .hf-title-grow { flex: 1; min-width: 0; }
   .hf {
     padding: 0 24px;
     border-right: 1px solid rgba(255,255,255,0.15);
@@ -537,31 +546,36 @@
     </div>
   </div>
   <div class="header-fields">
-    <div class="hf">
-      <label>店舗名</label>
-      <input class="edit-field" id="store-name" placeholder="店舗名" oninput="syncTitle()" />
+    <!-- 上段：基本情報 -->
+    <div class="hf-row">
+      <div class="hf">
+        <label>店舗名</label>
+        <input class="edit-field" id="store-name" placeholder="店舗名" oninput="syncTitle()" />
+      </div>
+      <div class="hf">
+        <label>総台数</label>
+        <span id="hf-machines">―</span>
+      </div>
+      <div class="hf">
+        <label>送信ID</label>
+        <span id="hf-send-id">―</span>
+      </div>
+      <div class="hf">
+        <label>配信日時</label>
+        <span id="hf-datetime">―</span>
+      </div>
     </div>
-    <div class="hf">
-      <label>総台数</label>
-      <span id="hf-machines">―</span>
+    <!-- 下段：案件タイトル ＋ キャンペーンタイプ -->
+    <div class="hf-row-2">
+      <div class="hf hf-title-grow">
+        <label>案件タイトル</label>
+        <input class="edit-field" id="campaign-name" placeholder="案件タイトル" style="width:100%;box-sizing:border-box;" oninput="syncTitle()" />
+      </div>
+      <div class="hf" id="hf-campaign-type-wrap" style="display:none">
+        <label>キャンペーンタイプ</label>
+        <span id="hf-campaign-type">―</span>
+      </div>
     </div>
-    <div class="hf">
-      <label>案件タイトル</label>
-      <input class="edit-field" id="campaign-name" placeholder="案件タイトル" style="min-width:200px" oninput="syncTitle()" />
-    </div>
-    <div class="hf">
-      <label>送信ID</label>
-      <span id="hf-send-id">―</span>
-    </div>
-    <div class="hf">
-      <label>配信日時</label>
-      <span id="hf-datetime">―</span>
-    </div>
-    <div class="hf" id="hf-campaign-type-wrap" style="display:none">
-      <label>キャンペーンタイプ</label>
-      <span id="hf-campaign-type">―</span>
-    </div>
-
   </div>
 </div>
 

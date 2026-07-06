@@ -11,7 +11,7 @@ import os
 import glob
 import tempfile
 import streamlit as st
-from generate_report import generate_report_core, load_campaign_targets
+from generate_report import generate_report_core, load_campaign_targets, analyze_sms, parse_ko_xlsx
 
 # ── ページ設定 ────────────────────────────────
 st.set_page_config(
@@ -143,9 +143,11 @@ with col_m:
     )
 with col_c:
     campaign_type = st.selectbox(
-        'キャンペーンタイプ',
+        'キャンペーンタイプ ＊必須',
         options=campaign_names if campaign_names else ['（SMSターゲット.xlsx が見つかりません）'],
-        help='SMSターゲット.xlsx に定義されているキャンペーン種別',
+        index=None,
+        placeholder='── 選択してください ──',
+        help='SMSターゲット.xlsx に定義されているキャンペーン種別（必ず選択してください）',
         key=f'campaign_{fk}',
     )
 
@@ -168,8 +170,8 @@ with col_s3:
     _warmth_sel = st.radio('お店の思い・温かみ', ['自動判定','有','無'], horizontal=True,
                            help='感謝・期待感など温かみのある表現があるか', key=f'warmth_{fk}')
 with col_s4:
-    _generic_sel = st.radio('汎用フレーズのみ', ['自動判定','有','無'], horizontal=True,
-                            help='有＝汎用フレーズのみで具体性がない（要改善）', key=f'generic_{fk}')
+    _generic_sel = st.radio('汎用フレーズのみ', ['自動判定','要改善','改善不要'], horizontal=True,
+                            help='要改善＝汎用フレーズのみで具体性がない / 改善不要＝具体的な内容が含まれている', key=f'generic_{fk}')
 
 col_s5, _ = st.columns(2)
 with col_s5:
@@ -179,7 +181,8 @@ with col_s5:
 store_name_status    = None if _store_sel    == '自動判定' else _store_sel
 customer_name_status = None if _customer_sel == '自動判定' else _customer_sel
 warmth_status        = None if _warmth_sel   == '自動判定' else _warmth_sel
-generic_status       = None if _generic_sel  == '自動判定' else _generic_sel
+# 「要改善」→内部値「有」（汎用フレーズのみ＝問題あり）、「改善不要」→「無」
+generic_status       = None if _generic_sel  == '自動判定' else ('有' if _generic_sel == '要改善' else '無')
 hook_status          = None if _hook_sel     == '自動判定' else _hook_sel
 
 # ════════════════════════════════════════════
@@ -188,12 +191,15 @@ hook_status          = None if _hook_sel     == '自動判定' else _hook_sel
 st.divider()
 btn_col1, btn_col2 = st.columns([3, 1])
 with btn_col1:
-    generate_btn = st.button('🚀 レポートを生成する', type='primary', disabled=(xlsx_file is None))
+    _btn_disabled = (xlsx_file is None) or (campaign_type is None and bool(campaign_names))
+    generate_btn = st.button('🚀 レポートを生成する', type='primary', disabled=_btn_disabled)
 with btn_col2:
     st.button('🔄 リセット', on_click=reset_form)
 
 if xlsx_file is None:
     st.info('KO XLSX をアップロードするとレポートを生成できます。')
+elif campaign_type is None and bool(campaign_names):
+    st.warning('キャンペーンタイプを選択してください。')
 
 # ── 生成処理 ──────────────────────────────────
 if generate_btn and xlsx_file is not None:
@@ -236,6 +242,37 @@ if generate_btn and xlsx_file is not None:
             store_raw = store_match.group(1) if store_match else ''
             store_safe = re.sub(r'[\\/:*?"<>|\s]', '_', store_raw)
             filename = f'{store_safe}_{send_id}.html' if store_safe else f'report_{send_id}.html'
+
+            # ── 手動設定と自動判定の矛盾チェック ──
+            try:
+                _, _, meta_q = parse_ko_xlsx(xlsx_path)
+                sms_text_q = meta_q.get('smsText', '')
+                store_q    = meta_q.get('store', '')
+                if sms_text_q:
+                    auto = {c['label']: c for c in analyze_sms(sms_text_q, store_name=store_q)['checks']}
+                    # label → (手動値, 手動値がwarnになる内部status, 手動値がokになる内部status)
+                    checks_map = [
+                        ('店名の記載',        store_name_status,    '有', 'ok',   '無', 'warn'),
+                        ('お客様名の記載',    customer_name_status, '有', 'ok',   '無', 'na'),
+                        ('お店の思い・温かみ', warmth_status,       '有', 'ok',   '無', 'warn'),
+                        ('汎用フレーズのみ',  generic_status,       '無', 'ok',   '有', 'warn'),
+                        ('興味喚起フック',    hook_status,          '有', 'ok',   '無', 'warn'),
+                    ]
+                    for label, manual_val, ok_val, ok_st, ng_val, ng_st in checks_map:
+                        if manual_val is None or label not in auto:
+                            continue
+                        auto_status = auto[label]['status']
+                        auto_detail = auto[label]['detail']
+                        manual_status = ok_st if manual_val == ok_val else ng_st
+                        if manual_status != auto_status:
+                            ui_val = ('要改善' if manual_val == '有' else '改善不要') if label == '汎用フレーズのみ' else manual_val
+                            st.warning(
+                                f'⚠️ **{label}**：手動で「{ui_val}」に設定されていますが、'
+                                f'自動判定では異なる結果でした。\n'
+                                f'自動判定の根拠：{auto_detail}'
+                            )
+            except Exception:
+                pass  # 矛盾チェック失敗はサイレントに無視
 
             st.success(f'✅ レポート生成完了！（{len(html) // 1024} KB）')
             st.download_button(
