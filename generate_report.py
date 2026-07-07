@@ -747,15 +747,7 @@ def generate_actions(segments, age_segments, meta, sms_analysis=None, extra_lp_a
             'sentCount': worst['sent'],
         })
 
-    # ④ シミュレーション提案（常時）
-    actions.append({
-        'quad': 'sim',
-        'title': '📋 ターゲット条件の緩和提案',
-        'body': ('今回の絞り込み条件を緩和し、離反期間をより広げることで追加来店が見込めます。'
-                 'シミュレーションセクションをご確認ください。'),
-    })
-
-    # ⑤ SMS品質：要改善（warn）が2つ以上の場合に本文見直し提案
+    # ④ SMS品質：要改善（warn）が2つ以上の場合に本文見直し提案
     if sms_analysis:
         # 文字数（info）を除く5項目のみ対象
         target_checks = [c for c in sms_analysis.get('checks', [])
