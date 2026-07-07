@@ -481,7 +481,7 @@ def analyze_sms(text, store_name=''):
 
     # ③ お店の思いが伝わるか（温かみ・感情語の有無）
     warm_words = ['ありがとう', 'おかげさま', 'うれし', '感謝', '喜', 'お待ち', 'ぜひ',
-                  '皆様', 'みなさま', '心より', '特別', 'とっておき', '大切', '思い']
+                  '皆様', 'みなさま', '心より', '特別', 'とっておき', '大切', '思い', '楽しみ']
     has_warmth = any(w in text for w in warm_words)
     content_len = len(re.sub(r'https?://\S+|\s|　', '', url_removed))
     too_short = content_len < 15
@@ -492,42 +492,58 @@ def analyze_sms(text, store_name=''):
                   else '作業的・短すぎる文章はお客様の興味を惹きにくい場合があります。感謝・期待感を添えると効果的です'
     })
 
-    # ④ 汎用フレーズのみチェック
-    generic_phrases = ['大切なお客様へのお知らせ', 'お知らせです', 'ご案内です', '詳しくはこちら']
-    has_generic_only = any(p in text for p in generic_phrases) and content_len < 20
-
-    # ok時：URLを除いたテキストで具体的な内容を特定
+    # ④ チラ見せ度（情報の出し過ぎ検出）
     text_no_url = re.sub(r'https?://\S+', '', text)
-    found_specifics = []
-    nums = re.findall(r'\d+[周年台日月曜火水木金土%倍円]?', text_no_url)
-    if nums: found_specifics.append(f"「{'・'.join(nums[:3])}」などの具体的な数字")
-    hook_found = [w for w in ['周年', '限定', '新台', 'イベント', '増台', '復活', 'お得'] if w in text_no_url]
-    if hook_found: found_specifics.append(f"「{'・'.join(hook_found)}」といった具体的なキーワード")
-    specific_detail = '、'.join(found_specifics) + 'が含まれており、汎用文だけで終わっていません' if found_specifics \
-                      else '汎用フレーズに依存しない文章構成です'
-
+    has_date = bool(re.search(r'\d+月\d+日|\d+/\d+', text_no_url))
+    event_keywords = ['リニューアル', 'オープン', 'OPEN', 'Open', '入替', '新台', 'フェア', 'グランド', '移転']
+    has_event = any(kw in text_no_url for kw in event_keywords)
+    tease_overdisclosed = has_date and has_event
     checks.append({
-        'label': '汎用フレーズのみ',
-        'status': 'warn' if has_generic_only else 'ok',
-        'detail': '汎用フレーズだけで具体的なフックがありません。「何があるの？」と思わせる一言を追加しましょう' if has_generic_only
-                  else specific_detail
+        'label': 'チラ見せ度',
+        'status': 'warn' if tease_overdisclosed else 'ok',
+        'detail': '日付とイベント内容が両方記載されており、LPを見る前に情報が出し過ぎている可能性があります。LP訪問の動機を残すよう内容を調整してください'
+                  if tease_overdisclosed
+                  else 'LPを見ないとわからない情報が残っており、クリック動機が保たれています'
     })
 
-    # ⑤ 興味喚起フック
-    has_number = bool(re.search(r'\d+', text))
-    has_hook_words = any(w in text for w in ['周年', '限定', '初', '新台', '復活', '秘密', 'お得', '増台', 'イベント'])
-    has_hook = has_number or has_hook_words
+    # ⑤ 緊急性・限定感
+    urgency_keywords = ['今月', '今週', 'GW', 'お正月', '年末', '年始', '今日', '明日', '今晩',
+                        '期間限定', '今だけ', 'この機会', '数量限定']
+    limit_keywords = ['VIP', '会員限定', '会員様だけ', '会員様限定', '特別な会員', '選ばれた',
+                      '一部の会員', '限られた', '限定', 'プレミアム会員', 'ご優待']
+    date_limit = bool(re.search(r'\d+月\d+日まで|\d+日間限定|\d+日まで', text_no_url))
+    has_urgency = (any(kw in text for kw in urgency_keywords)
+                   or any(kw in text for kw in limit_keywords)
+                   or date_limit)
     checks.append({
-        'label': '興味喚起フック',
-        'status': 'ok' if has_hook else 'warn',
-        'detail': '数字・固有フレーズで「気になる」を演出できています' if has_hook
-                  else 'URLを開きたくなる具体的なフックがありません'
+        'label': '緊急性・限定感',
+        'status': 'ok' if has_urgency else 'warn',
+        'detail': '今行く理由・限定感がある訴求が含まれています' if has_urgency
+                  else '期限や限定感がなく「今行かなくてもいい」と感じさせる可能性があります。「今月」「会員限定」などを加えると効果的です'
+    })
+
+    # ⑥ CTAの明確さ
+    cta_keywords = ['↓', '▶', '▼', 'タップ', 'こちら', 'コチラ', '確認', '詳細', 'クリック',
+                    '今すぐ', 'ご確認', 'チェック', 'ご覧', 'はこちら']
+    has_cta = any(kw in text for kw in cta_keywords)
+    checks.append({
+        'label': 'CTAの明確さ',
+        'status': 'ok' if has_cta else 'warn',
+        'detail': 'LP誘導フレーズがあり、クリックを促す構成になっています' if has_cta
+                  else 'URLだけの掲載はタップされにくくなります。「↓詳細はコチラ」「ご確認ください↓」など一言添えると効果的です'
+    })
+
+    # ⑦ 文章の使い回し感（自動判定不可・手動のみ）
+    checks.append({
+        'label': '文章の使い回し感',
+        'status': 'na',
+        'detail': '自動判定不可。毎回同じ文章を使い回している場合は手動でチェックしてください'
     })
 
     # 文字数（URL・改行含む）
     char_count = len(text)
 
-    # ⑥ 文字数（情報表示のみ。長い・短いで優劣なし）
+    # ⑧ 文字数（情報表示のみ。長い・短いで優劣なし）
     if char_count <= 70:
         char_status, char_detail = 'info', f'{char_count}字：基本料金範囲内（70字以内）'
     elif char_count <= 133:
@@ -541,10 +557,9 @@ def analyze_sms(text, store_name=''):
     })
 
     warn_count = sum(1 for c in checks if c['status'] == 'warn')
-    na_count   = sum(1 for c in checks if c['status'] == 'na')
     if warn_count >= 3:
         score = 'review'
-    elif warn_count > 0 or na_count > 0:
+    elif warn_count >= 1:
         score = 'caution'
     else:
         score = 'good'
@@ -1094,11 +1109,13 @@ def generate_report_core(
     campaign_type=None,
     template_path=None,
     script_dir=None,
-    store_name_status=None,    # '有'→ok / '無'→warn / None（自動判定）
-    customer_name_status=None, # '有'→ok / '無'→na  / None（自動判定）
-    warmth_status=None,        # '有'→ok / '無'→warn / None（自動判定）
-    generic_status=None,       # '有'→warn（汎用のみ） / '無'→ok / None（自動判定）
-    hook_status=None,          # '有'→ok / '無'→warn / None（自動判定）
+    store_name_status=None,     # '有'→ok / '無'→warn / None（自動判定）
+    customer_name_status=None,  # '有'→ok / '無'→na  / None（自動判定）
+    warmth_status=None,         # '有'→ok / '無'→warn / None（自動判定）
+    tease_status=None,          # '無'→ok（出し過ぎなし）/ '有'→warn（出し過ぎ）/ None（自動判定）
+    urgency_status=None,        # '有'→ok / '無'→warn / None（自動判定）
+    cta_status=None,            # '有'→ok / '無'→warn / None（自動判定）
+    reuse_status=None,          # '無'→ok（使い回しなし）/ '有'→warn（使い回しあり）/ None（判定不可）
 ):
     """
     レポートHTMLを生成して文字列で返す。
@@ -1191,23 +1208,30 @@ def generate_report_core(
                 '有': ('ok',   'お店の気持ちが感じられる文章です'),
                 '無': ('warn', '作業的・短すぎる文章はお客様の興味を惹きにくい場合があります'),
             }),
-            '汎用フレーズのみ': (generic_status, {
-                '有': ('warn', '汎用フレーズだけで具体的なフックがありません。「何があるの？」と思わせる一言を追加しましょう'),
-                '無': ('ok',   '汎用フレーズに依存しない文章構成です'),
+            'チラ見せ度': (tease_status, {
+                '無': ('ok',   'LPを見ないとわからない情報が残っており、クリック動機が保たれています'),
+                '有': ('warn', '日付とイベント内容が両方記載されており、LPを見る前に情報が出し過ぎている可能性があります'),
             }),
-            '興味喚起フック': (hook_status, {
-                '有': ('ok',   '数字・固有フレーズで「気になる」を演出できています'),
-                '無': ('warn', 'URLを開きたくなる具体的なフックがありません'),
+            '緊急性・限定感': (urgency_status, {
+                '有': ('ok',   '今行く理由・限定感がある訴求が含まれています'),
+                '無': ('warn', '期限や限定感がなく「今行かなくてもいい」と感じさせる可能性があります'),
+            }),
+            'CTAの明確さ': (cta_status, {
+                '有': ('ok',   'LP誘導フレーズがあり、クリックを促す構成になっています'),
+                '無': ('warn', 'URLだけの掲載はタップされにくくなります。「↓詳細はコチラ」など一言添えると効果的です'),
+            }),
+            '文章の使い回し感': (reuse_status, {
+                '無': ('ok',   '配信ごとに独自の内容が入っており、マンネリ化していません'),
+                '有': ('warn', '同じ文章の使い回しは飽きにつながります。配信ごとに内容を変えることを推奨します'),
             }),
         }
         for check in sms_analysis['checks']:
             override_val, status_map = _overrides.get(check['label'], (None, {}))
             if override_val is not None and override_val in status_map:
                 check['status'], check['detail'] = status_map[override_val]
-        # スコア再計算
+        # スコア再計算（naはカウントしない）
         warn_count = sum(1 for c in sms_analysis['checks'] if c['status'] == 'warn')
-        na_count   = sum(1 for c in sms_analysis['checks'] if c['status'] == 'na')
-        sms_analysis['score'] = 'review' if warn_count >= 3 else ('caution' if (warn_count > 0 or na_count > 0) else 'good')
+        sms_analysis['score'] = 'review' if warn_count >= 3 else ('caution' if warn_count >= 1 else 'good')
         html = inject_sms_analysis(html, meta['smsText'], sms_analysis)
 
     # 次の一手・所見コメント（自動生成）

@@ -156,38 +156,93 @@ with col_c:
     )
 
 # ════════════════════════════════════════════
-# STEP 4 : SMS本文チェック（手動選択）
+# STEP 4 : SMS本文チェック
 # ════════════════════════════════════════════
-st.markdown('<div class="section-title">STEP 4 ─ SMS本文チェック（手動選択）</div>', unsafe_allow_html=True)
-st.caption('KOレポートから自動判定が難しい項目を選択してください。「自動判定」にすると本文テキストから推定します。')
+st.markdown('<div class="section-title">STEP 4 ─ SMS本文チェック</div>', unsafe_allow_html=True)
+st.caption('ファイルから自動判定します。結果は手動で変更できます（変更するとこちらが優先されます）。')
 
-col_s1, col_s2 = st.columns(2)
-with col_s1:
-    _store_sel = st.radio('店名の記載', ['自動判定','有','無'], horizontal=True,
-                          help='SMS本文に店名が記載されているか', key=f'store_{fk}')
-with col_s2:
-    _customer_sel = st.radio('お客様名の記載', ['自動判定','有','無'], horizontal=True,
-                             help='SMS本文にお客様の個人名が差し込まれているか', key=f'customer_{fk}')
+# ── 自動判定を実行（ファイル変更時に再実行）──
+import hashlib as _hashlib
+_auto_checks: dict = {}
+_auto_hash = 'none'
+if xlsx_file is not None:
+    try:
+        _xlsx_bytes = xlsx_file.read()
+        xlsx_file.seek(0)
+        _auto_hash = _hashlib.md5(_xlsx_bytes).hexdigest()[:8]
+        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as _tf:
+            _tf.write(_xlsx_bytes)
+            _tf.flush()
+            _tmp_path = _tf.name
+        _meta_auto, _, _ = parse_ko_xlsx(_tmp_path)
+        os.unlink(_tmp_path)
+        if _meta_auto.get('smsText'):
+            _ar = analyze_sms(_meta_auto['smsText'], store_name=_meta_auto.get('store', ''))
+            _auto_checks = {c['label']: c for c in _ar['checks']}
+    except Exception:
+        pass
 
-col_s3, col_s4 = st.columns(2)
-with col_s3:
-    _warmth_sel = st.radio('お店の思い・温かみ', ['自動判定','有','無'], horizontal=True,
-                           help='感謝・期待感など温かみのある表現があるか', key=f'warmth_{fk}')
-with col_s4:
-    _generic_sel = st.radio('汎用フレーズのみ', ['自動判定','改善不要','要改善'], horizontal=True,
-                            help='要改善＝汎用フレーズのみで具体性がない / 改善不要＝具体的な内容が含まれている', key=f'generic_{fk}')
+# ファイルが変わったらウィジェットをリセットするキー
+_cb_key = f'{fk}_{_auto_hash}'
 
-col_s5, _ = st.columns(2)
-with col_s5:
-    _hook_sel = st.radio('興味喚起フック', ['自動判定','有','無'], horizontal=True,
-                         help='数字・限定・固有ワードなどフックとなる表現があるか', key=f'hook_{fk}')
+# 各項目: (ラベル, checked=OK?, ファイル未読込時デフォルト)
+_ITEMS = [
+    ('店名の記載',         True,  True),   # checked=記載あり=OK
+    ('お客様名の記載',     True,  True),   # checked=記載あり=OK
+    ('チラ見せ度',         False, True),   # checked=出し過ぎなし=OK
+    ('緊急性・限定感',     True,  False),  # checked=あり=OK
+    ('CTAの明確さ',        True,  False),  # checked=明確=OK
+    ('お店の思い・温かみ', True,  True),   # checked=あり=OK
+    ('文章の使い回し感',   False, True),   # checked=使い回しなし=OK
+]
 
-store_name_status    = None if _store_sel    == '自動判定' else _store_sel
-customer_name_status = None if _customer_sel == '自動判定' else _customer_sel
-warmth_status        = None if _warmth_sel   == '自動判定' else _warmth_sel
-# 「要改善」→内部値「有」（汎用フレーズのみ＝問題あり）、「改善不要」→「無」
-generic_status       = None if _generic_sel  == '自動判定' else ('有' if _generic_sel == '要改善' else '無')
-hook_status          = None if _hook_sel     == '自動判定' else _hook_sel
+def _auto_bool(label, default):
+    if label in _auto_checks:
+        c = _auto_checks[label]
+        if c['status'] == 'na':
+            return default
+        return c['status'] == 'ok'
+    return default
+
+def _auto_detail(label):
+    return _auto_checks[label]['detail'] if label in _auto_checks else '（ファイルをアップロードすると自動判定します）'
+
+# ── 自動判定結果（変更不可）──
+st.caption('🤖 自動判定結果')
+_au_cols = st.columns(4)
+for _i, (label, pos_check, default) in enumerate(_ITEMS):
+    with _au_cols[_i % 4]:
+        _is_na = label in _auto_checks and _auto_checks[label]['status'] == 'na'
+        if _is_na:
+            st.checkbox(label, value=False, disabled=True,
+                       help='自動判定非対応（下の手動欄で設定してください）',
+                       key=f'au_{_cb_key}_{_i}')
+        else:
+            st.checkbox(label, value=_auto_bool(label, default), disabled=True,
+                       help=_auto_detail(label), key=f'au_{_cb_key}_{_i}')
+
+st.divider()
+
+# ── 手動入力（変更するとこちらが優先）──
+st.caption('✏️ 手動で変更（変更するとこちらが優先されます）')
+_mn_cols = st.columns(4)
+_mn_vals = {}
+for _i, (label, pos_check, default) in enumerate(_ITEMS):
+    with _mn_cols[_i % 4]:
+        _mn_vals[label] = st.checkbox(label, value=_auto_bool(label, default),
+                                      help=_auto_detail(label),
+                                      key=f'mn_{_cb_key}_{_i}')
+
+# checked=OK のルールで内部値に変換
+# positive items : checked(True)→'有'(ok) / unchecked(False)→'無'(warn)
+# negative items : checked(True)→'無'(ok=問題なし) / unchecked(False)→'有'(warn=問題あり)
+store_name_status    = '有' if _mn_vals['店名の記載'] else '無'
+customer_name_status = '有' if _mn_vals['お客様名の記載'] else '無'
+warmth_status        = '有' if _mn_vals['お店の思い・温かみ'] else '無'
+tease_status         = '無' if _mn_vals['チラ見せ度'] else '有'
+urgency_status       = '有' if _mn_vals['緊急性・限定感'] else '無'
+cta_status           = '有' if _mn_vals['CTAの明確さ'] else '無'
+reuse_status         = '無' if _mn_vals['文章の使い回し感'] else '有'
 
 # ════════════════════════════════════════════
 # ボタン行（生成 ＋ リセット）
@@ -239,8 +294,10 @@ if generate_btn and xlsx_file is not None:
                     store_name_status     = store_name_status,
                     customer_name_status  = customer_name_status,
                     warmth_status         = warmth_status,
-                    generic_status        = generic_status,
-                    hook_status           = hook_status,
+                    tease_status          = tease_status,
+                    urgency_status        = urgency_status,
+                    cta_status            = cta_status,
+                    reuse_status          = reuse_status,
                 )
 
             import re
@@ -250,37 +307,6 @@ if generate_btn and xlsx_file is not None:
             store_raw = store_match.group(1) if store_match else ''
             store_safe = re.sub(r'[\\/:*?"<>|\s]', '_', store_raw)
             filename = f'{store_safe}_{send_id}.html' if store_safe else f'report_{send_id}.html'
-
-            # ── 手動設定と自動判定の矛盾チェック ──
-            try:
-                _, _, meta_q = parse_ko_xlsx(xlsx_path)
-                sms_text_q = meta_q.get('smsText', '')
-                store_q    = meta_q.get('store', '')
-                if sms_text_q:
-                    auto = {c['label']: c for c in analyze_sms(sms_text_q, store_name=store_q)['checks']}
-                    # label → (手動値, 手動値がwarnになる内部status, 手動値がokになる内部status)
-                    checks_map = [
-                        ('店名の記載',        store_name_status,    '有', 'ok',   '無', 'warn'),
-                        ('お客様名の記載',    customer_name_status, '有', 'ok',   '無', 'na'),
-                        ('お店の思い・温かみ', warmth_status,       '有', 'ok',   '無', 'warn'),
-                        ('汎用フレーズのみ',  generic_status,       '無', 'ok',   '有', 'warn'),
-                        ('興味喚起フック',    hook_status,          '有', 'ok',   '無', 'warn'),
-                    ]
-                    for label, manual_val, ok_val, ok_st, ng_val, ng_st in checks_map:
-                        if manual_val is None or label not in auto:
-                            continue
-                        auto_status = auto[label]['status']
-                        auto_detail = auto[label]['detail']
-                        manual_status = ok_st if manual_val == ok_val else ng_st
-                        if manual_status != auto_status:
-                            ui_val = ('要改善' if manual_val == '有' else '改善不要') if label == '汎用フレーズのみ' else manual_val
-                            st.warning(
-                                f'⚠️ **{label}**：手動で「{ui_val}」に設定されていますが、'
-                                f'自動判定では異なる結果でした。\n'
-                                f'自動判定の根拠：{auto_detail}'
-                            )
-            except Exception:
-                pass  # 矛盾チェック失敗はサイレントに無視
 
             st.success(f'✅ レポート生成完了！（{len(html) // 1024} KB）')
             st.download_button(
