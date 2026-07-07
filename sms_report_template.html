@@ -53,19 +53,6 @@
   .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
   .report-title { font-size: 24px; font-weight: 800; color: #fff; letter-spacing: 0.02em; }
   .header-right { display: flex; gap: 12px; align-items: center; }
-  .print-btn {
-    background: rgba(255,255,255,0.15);
-    color: white;
-    border: 1.5px solid rgba(255,255,255,0.5);
-    border-radius: 6px;
-    padding: 6px 16px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    backdrop-filter: blur(4px);
-  }
-  .print-btn:hover { background: rgba(255,255,255,0.25); }
   .generated-at-txt { font-size: 12px; color: rgba(255,255,255,0.7); }
   .header-fields {
     margin: 0 -32px;
@@ -527,7 +514,6 @@
 
   @media print {
     body { background: white; }
-    .print-btn { display: none; }
   }
 </style>
 </head>
@@ -542,7 +528,1510 @@
     </div>
     <div class="header-right">
       <span class="generated-at-txt" id="gen-date"></span>
-      <button class="print-btn" onclick="window.print()">印刷 / PDF</button>
+    </div>
+  </div>
+  <div class="header-fields">
+    <!-- 上段：基本情報 -->
+    <div class="hf-row">
+      <div class="hf">
+        <label>店舗名</label>
+        <input class="edit-field" id="store-name" placeholder="店舗名" oninput="syncTitle()" />
+      </div>
+      <div class="hf">
+        <label>総台数</label>
+        <span id="hf-machines">―</span>
+      </div>
+      <div class="hf">
+        <label>送信ID</label>
+        <span id="hf-send-id">―</span>
+      </div>
+      <div class="hf">
+        <label>配信日時</label>
+        <span id="hf-datetime">―</span>
+      </div>
+    </div>
+    <!-- 下段：案件タイトル ＋ キャンペーンタイプ -->
+    <div class="hf-row-2">
+      <div class="hf hf-title-grow">
+        <label>案件タイトル</label>
+        <input class="edit-field" id="campaign-name" placeholder="案件タイトル" style="width:100%;box-sizing:border-box;" oninput="syncTitle()" />
+      </div>
+      <div class="hf" id="hf-campaign-type-wrap" style="display:none">
+        <label>キャンペーンタイプ</label>
+        <span id="hf-campaign-type">―</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN ══ -->
+<div class="main">
+
+
+  <!-- KPI -->
+  <div class="section">
+    <div class="sec-title">サマリー KPI（実数）</div>
+    <div class="kpi-grid">
+      <div class="kpi kpi-blue">
+        <div class="lbl">送信予約数</div>
+        <div class="val" id="kpi-reserved">―</div>
+      </div>
+      <div class="kpi kpi-blue">
+        <div class="lbl">送信成功数</div>
+        <div class="val" id="kpi-sent">―</div>
+        <div class="sub" id="kpi-sent-sub"></div>
+      </div>
+      <div class="kpi kpi-green">
+        <div class="lbl">LP支持数</div>
+        <div class="val" id="kpi-lp">―</div>
+        <div class="sub" id="kpi-lp-sub"></div>
+      </div>
+      <div class="kpi kpi-green">
+        <div class="lbl">複数閲覧者数</div>
+        <div class="val" id="kpi-multi">―</div>
+        <div class="sub" id="kpi-multi-sub"></div>
+      </div>
+      <div class="kpi kpi-green">
+        <div class="lbl">総ページビュー数</div>
+        <div class="val" id="kpi-pv">―</div>
+      </div>
+      <div class="kpi kpi-amber">
+        <div class="lbl">来店者数（期間内）</div>
+        <div class="val" id="kpi-visits">―</div>
+        <div class="sub" id="kpi-visits-sub"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- カード補正 -->
+
+
+  <!-- 4象限 -->
+  <div class="section">
+    <div class="sec-title">年代別 4象限マトリクス（来店転換率 × LP支持率）</div>
+    <div class="quad-section">
+      <div>
+        <div class="chart-wrap"><canvas id="scatter"></canvas></div>
+        <div class="chart-legend">
+          <span>● バブルサイズ = 送信成功数</span>
+          <span id="avg-legend">青破線 = 全体平均</span>
+        </div>
+        <div id="low-sample-note" style="display:none; margin-top:6px; font-size:11px; color:#92400e; background:#fef3c7; border:1px solid #fcd34d; border-radius:5px; padding:4px 10px; text-align:center;">
+          ⚠ 点線で表示しているセグメントは送信数が少なく（n&lt;20）、転換率が統計的に不安定です。参考値としてご確認ください。
+        </div>
+      </div>
+      <div class="quad-cards">
+        <div class="qcard qc-star">
+          <div class="qcard-header"><div class="ql">優良反応層 ★</div><h4>LP閲覧・複数閲覧ともに高い</h4></div>
+          <div class="qs" id="q1-stats"></div>
+          <ul id="q1-list"></ul>
+        </div>
+        <div class="qcard qc-loyal">
+          <div class="qcard-header"><div class="ql">高来店層 ♦</div><h4>来店頻度は高いがLP閲覧少なめ</h4></div>
+          <div class="qs" id="q2-stats"></div>
+          <ul id="q2-list"></ul>
+        </div>
+        <div class="qcard qc-pot">
+          <div class="qcard-header"><div class="ql">関心限定層 ▲</div><h4>LP閲覧はあるが複数閲覧に至らない</h4></div>
+          <div class="qs" id="q3-stats"></div>
+          <ul id="q3-list"></ul>
+        </div>
+        <div class="qcard qc-cold">
+          <div class="qcard-header"><div class="ql">低反応層 ▽</div><h4>LP閲覧・複数閲覧ともに低い</h4></div>
+          <div class="qs" id="q4-stats"></div>
+          <ul id="q4-list"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 離反期間別詳細 -->
+  <div class="section">
+    <div class="sec-title">離反期間別 詳細データ（実数ベース）</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>離反期間</th>
+            <th>送信成功数</th>
+            <th>LP支持数</th>
+            <th>LP支持率</th>
+            <th>来店者数</th>
+            <th>来店転換率</th>
+            <th>象限</th>
+          </tr>
+        </thead>
+        <tbody id="detail-tbody"></tbody>
+      </table>
+    </div>
+    <div style="text-align:right;font-size:10px;color:var(--gray-400);margin-top:6px;">
+      ※ 合計がサマリーKPIと異なる場合、最終来店日が未登録で離反期間が判明していない会員は集計対象外となるためです。
+    </div>
+  </div>
+
+<!-- SMS本文分析 -->
+  <div class="section" id="sms-section" style="display:none;">
+    <div class="sec-title">SMS本文分析</div>
+    <div class="sms-analysis-box">
+      <div id="sms-score-badge"></div>
+      <div class="sms-text-display" id="sms-text-display"></div>
+      <div class="sms-check-grid" id="sms-check-grid"></div>
+
+    </div>
+  </div>
+
+  <!-- ヒートマップ＋スクロール深度 -->
+  <div class="section">
+    <div class="sec-title">LP分析 ＋ スクロール深度別データ</div>
+    <div class="heatmap-section">
+      <div>
+        <div style="font-size:10px;color:var(--gray-400);margin-bottom:4px;text-align:center;">LPページ画像</div>
+        <div class="heatmap-img-wrap"><div class="depth-highlight-overlay"></div><div class="img-position-indicator" id="img-pos-indicator">▲ 上部 0%</div><img src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22600%22%3E%3Crect width=%22400%22 height=%22600%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22sans-serif%22 font-size=%2218%22 fill=%22%2394a3b8%22%3ELP%E7%94%BB%E5%83%8F%3C/text%3E%3C/svg%3E" class="heatmap-img" alt="LPページ画像" onerror="this.style.display='none';"></div>
+        <div class="heatmap-placeholder" style="display:none;">LPページ画像<br>（データ差し替え時に表示）</div>
+      </div>
+      <div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:64px;">スクロール深度</th>
+                <th style="width:38%;">到達率</th>
+                <th style="width:38%;">注目割合</th>
+                <th style="width:80px;">象限</th>
+                <th style="width:60px;">判定</th>
+              </tr>
+            </thead>
+            <tbody id="scroll-depth-tbody"></tbody>
+          </table>
+        </div>
+        <div class="heatmap-note" style="margin-top:8px;line-height:1.8;">
+          LPページ画像：赤色が濃いエリアほど多くのユーザーが興味を持ったエリア<br>
+          注目度：費やされた時間の平均を指標<br>
+          <span style="color:var(--gray-500);">※赤色エリア＝注目度が高いエリアではない</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 未配信層シミュレーション -->
+  <div class="sim-box">
+    <div style="margin-bottom:18px;">
+      <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:8px;">📊 実態推計：カード未使用来店者を加味した補正</div>
+      <div class="note">
+      来店時に<strong>カードを挿入しなければ来店データは記録されません。</strong>
+      記録された来店者数をカード使用率で補正した推定実来店者数を提示します。
+    </div>
+    <div id="measurement-days-info" style="font-size:11px;color:var(--gray-500);margin:4px 0 10px;padding:5px 10px;background:var(--gray-50);border-radius:4px;border-left:3px solid var(--blue-light);"></div>
+    <div style="display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;gap:8px;align-items:center;margin:12px 0;">
+      <div class="sim-card sc-actual">
+        <div class="sv" id="correction-recorded-val">―</div>
+        <div class="sl">記録された来店者数</div>
+        <div class="ss">カード挿入確認分</div>
+      </div>
+      <div class="sim-arrow">＋</div>
+      <div class="sim-card sc-sim">
+        <div class="sv" id="correction-unrecorded-val">―</div>
+        <div class="sl">推定カード未使用来店者数</div>
+        <div class="ss">カード未使用の推定分</div>
+      </div>
+      <div class="sim-arrow">=</div>
+      <div class="sim-card sc-delta">
+        <div class="sv" id="correction-total-val">―</div>
+        <div class="sl">推定実来店者数</div>
+        <div class="ss">補正後合計</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="correction-table">
+        <thead>
+          <tr>
+            <th>離反期間</th>
+            <th>送信数</th>
+            <th>来店数（実数）</th>
+            <th>想定来店率</th>
+            <th>推定実来店者数</th>
+            <th>推定カード未使用来店者数</th>
+          </tr>
+        </thead>
+        <tbody id="correction-tbody"></tbody>
+      </table>
+    </div>
+    <div style="font-size:10px;color:var(--gray-400);margin-top:6px;">※ 想定来店率は来店結果報告の実績データを使用。</div>
+    </div>
+    <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:6px;">📋 ターゲット条件の緩和シミュレーション</div>
+    <div class="box-note" id="sim-note">
+      今回の配信対象の絞り込み条件を緩和することで、追加アプローチが見込める会員様を試算します。なお3年以上の離反会員様は対象外としています。
+    </div>
+    <div style="font-size:10px;color:var(--gray-400);margin-bottom:12px;">※会員数は全国の平均値から想定している為、実際のデータとは異なります。また、携帯電話番号の登録数にもより実数は変動します。</div>
+    <div style="display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;gap:8px;align-items:center;margin-bottom:16px;">
+      <div class="sim-card sc-actual">
+        <div class="sv" id="sim-actual-val">―</div>
+        <div class="sl">今回の推定来店者数</div>
+        <div class="ss" id="sim-actual-sub"></div>
+      </div>
+      <div class="sim-arrow">＋</div>
+      <div class="sim-card sc-sim">
+        <div class="sv" id="sim-additional-val">―</div>
+        <div class="sl">未配信層からの追加見込み</div>
+        <div class="ss" id="sim-additional-sub"></div>
+      </div>
+      <div class="sim-arrow">=</div>
+      <div class="sim-card sc-delta">
+        <div class="sv" id="sim-total-val">―</div>
+        <div class="sl">広く送った場合の合計見込み</div>
+        <div class="ss" id="sim-total-sub"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:14px;align-items:center;margin-bottom:8px;font-size:11px;color:var(--gray-500);">
+      <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#fca5a5;"></span>来店実数（今回）</span>
+      <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#60a5fa;"></span>追加見込み</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:100px;">条件緩和で追加できる層</th>
+            <th style="width:80px;">追加対象人数</th>
+            <th style="width:72px;">想定LP支持率</th>
+            <th style="width:76px;">想定LP支持数</th>
+            <th style="width:72px;">想定来店率</th>
+            <th>追加推定来店者数</th>
+          </tr>
+        </thead>
+        <tbody id="sim-tbody"></tbody>
+      </table>
+    </div>
+    <div style="font-size:10px;color:var(--gray-400);margin-top:6px;">※ 長期間離反の会員様は転居の可能性を考慮し除外しています。想定LP支持率・想定来店率は実績値または業界推計値による参考値です。</div>
+  </div>
+
+  <!-- アクションプラン -->
+  <div class="section">
+    <div class="sec-title">本送信から導かれる次の一手</div>
+    <div class="action-grid" id="action-grid"></div>
+  </div>
+
+  <!-- 所見・コメント -->
+  <div class="section">
+    <div class="sec-title">所見・コメント</div>
+    <div class="memo-card">
+      <div class="memo-content"><!-- MEMO_CONTENT_PLACEHOLDER --></div>
+      <div id="sim-comment" style="display:none;margin-top:14px;"></div>
+    </div>
+  </div>
+
+  <div class="report-footer" id="report-footer"></div>
+
+</div><!-- /main -->
+</div><!-- /page-wrap -->
+
+<script>
+// ══════════════════════════════════════════
+//  ▼▼ データをここに入力 ▼▼
+// ══════════════════════════════════════════
+const DATA = {
+  store:      'オータ岡崎店',
+  campaign:   '2026GW告知',
+  sendId:     '44402',
+  axis:      '来店転換率 × LP支持率',
+  datetime:   '2026-04-28T18:00',
+  measurementDays: 0,  // 効果測定日数（generate_report.pyが自動設定）
+  machines: 0,         // 設置台数（generate_report.pyが自動設定）
+  campaignType: '',    // キャンペーン種別（generate_report.pyが自動設定）
+  maxSegment: '',      // 最大ターゲット離反期間（generate_report.pyが自動設定）
+
+  // 総括文（ここに記入した内容がそのままレポートに表示されます）
+  smsText: '',
+  smsScore: 'unknown',
+  smsChecks: [],
+
+  summary:
+    '1,023通の送信に対し、237名がLPを閲覧。そのうち149名が複数回LPを再訪しており、' +
+    '開封者の約3人に2人が繰り返しコンテンツを確認している。' +
+    'カード補正を加味した推定来店者数は合計約237名。' +
+    '優先アクションは ①件名・冒頭文の改善でLP到達者を増やす ' +
+    '②離反1〜2ヶ月層（105名）への配信内容見直し の順。',
+
+
+  // 送信サマリー
+  reserved:   1245,
+  sent:       1173,
+  lpViews:    385,
+  multiViews: 198,
+  totalPV:    343,
+  visits:     424,
+
+  // 離反期間別データ
+  // avgVisits = 平均累計来店回数
+  // cardRate  = カード使用率（補正係数）
+  // tag       = 'q1'|'q2'|'q3'|'q4'
+  // 年代別データ（自動生成）
+  ageSegments: [
+    { label: '20代まで', sent: 177, lp: 32,  multi: 18, visits: 39,  lpRate: 18.1, visitRate: 22.0, tag: 'q4' },
+    { label: '30代',     sent: 271, lp: 84,  multi: 47, visits: 86,  lpRate: 31.0, visitRate: 31.7, tag: 'q1' },
+    { label: '40代',     sent: 243, lp: 94,  multi: 55, visits: 71,  lpRate: 38.7, visitRate: 29.2, tag: 'q3' },
+    { label: '50代',     sent: 223, lp: 72,  multi: 41, visits: 86,  lpRate: 32.3, visitRate: 38.6, tag: 'q1' },
+    { label: '60代以上', sent: 259, lp: 103, multi: 60, visits: 142, lpRate: 39.8, visitRate: 54.8, tag: 'q1' },
+  ],
+
+  // 離反期間別データ（自動生成）
+  segments: [
+    { label: '1ヶ月未満', sent: 437, lp: 187, multi: 113, visits: 365, lpRate: 42.8, visitRate: 83.5, cardRate: 0.85, tag: 'q1' },
+    { label: '1〜2ヶ月',  sent:  90, lp:  33, multi:  16, visits:  22, lpRate: 36.7, visitRate: 24.4, cardRate: 0.60, tag: 'q4' },
+    { label: '2〜3ヶ月',  sent:  46, lp:  13, multi:   8, visits:  11, lpRate: 28.3, visitRate: 23.9, cardRate: 0.50, tag: 'q4' },
+    { label: '3〜6ヶ月',  sent:  99, lp:  26, multi:  15, visits:  16, lpRate: 26.3, visitRate: 16.2, cardRate: 0.35, tag: 'q4' },
+    { label: '半年〜1年', sent: 110, lp:  25, multi:  16, visits:   6, lpRate: 22.7, visitRate:  5.5, cardRate: 0.20, tag: 'q4' },
+    { label: '1〜3年',    sent: 385, lp: 100, multi:  58, visits:   4, lpRate: 26.0, visitRate:  1.0, cardRate: 0.10, tag: 'q4' },
+    { label: '3年以上',   sent:   6, lp:   1, multi:   1, visits:   0, lpRate: 16.7, visitRate:  0.0, cardRate: 0.05, tag: 'q4' },
+  ],
+
+  // ターゲット条件緩和提案（3年以上は除外）データは後日設定
+  unsentSegments: [],
+
+  // 象限コメント（空にすると非表示）
+  quadComments: {
+    q1: ['SMS本文・タイミングがこの層にマッチ', '継続配信＋追加特典訴求を推奨'],
+    q2: ['来店転換率は高いがLP支持率が低め', 'SMS本文の訴求強化・パーソナライズを検討'],
+    q3: ['LP到達はあるが来店動機が弱い可能性', 'LP内CTA強化＋年代別メッセージ変更を推奨'],
+    q4: ['SMS本文の件名・冒頭が刺さっていない可能性', '離反期間に合わせた訴求文面への変更を推奨'],
+  },
+
+
+  // LP スクロール深度データ（ClarityのCSVから）
+  // tag: 'q1'=注目エリア / 'q2'=短時間反応 / 'q3'=やや弱い / 'q4'=改善優先
+  // judge: 'keep'=残す / 'fix'=改善 / 'del'=削除候補
+  scrollDepths: [
+    { depth:  5, time: '5s',  pct: 2.43,  tag: 'q2', judge: 'fix'  },
+    { depth: 10, time: '8s',  pct: 3.33,  tag: 'q2', judge: 'fix'  },
+    { depth: 15, time: '22s', pct: 9.38,  tag: 'q1', judge: 'keep' },
+    { depth: 20, time: '11s', pct: 4.63,  tag: 'q3', judge: 'fix'  },
+    { depth: 25, time: '3s',  pct: 1.36,  tag: 'q4', judge: 'del'  },
+    { depth: 30, time: '3s',  pct: 1.26,  tag: 'q4', judge: 'del'  },
+    { depth: 35, time: '1s',  pct: 0.80,  tag: 'q4', judge: 'del'  },
+    { depth: 40, time: '2s',  pct: 0.95,  tag: 'q4', judge: 'del'  },
+    { depth: 45, time: '1s',  pct: 0.71,  tag: 'q4', judge: 'del'  },
+    { depth: 50, time: '19s', pct: 7.84,  tag: 'q1', judge: 'keep' },
+    { depth: 55, time: '31s', pct: 12.77, tag: 'q1', judge: 'keep' },
+    { depth: 60, time: '43s', pct: 18.01, tag: 'q1', judge: 'keep' },
+    { depth: 65, time: '28s', pct: 11.70, tag: 'q1', judge: 'keep' },
+    { depth: 70, time: '6s',  pct: 2.62,  tag: 'q3', judge: 'fix'  },
+    { depth: 75, time: '10s', pct: 4.43,  tag: 'q3', judge: 'fix'  },
+    { depth: 80, time: '3s',  pct: 1.39,  tag: 'q3', judge: 'fix'  },
+    { depth: 85, time: '6s',  pct: 2.83,  tag: 'q3', judge: 'fix'  },
+    { depth: 90, time: '5s',  pct: 2.29,  tag: 'q3', judge: 'fix'  },
+    { depth: 95, time: '12s', pct: 5.29,  tag: 'q1', judge: 'keep' },
+    { depth:100, time: '14s', pct: 5.97,  tag: 'q1', judge: 'keep' },
+  ],
+  // 次回アクション（quad: 'q1'|'q2'|'q3'|'q4'|'sim' で象限カードと色連動）
+  actions: [
+    { quad: 'q1', title: '★ 優良反応層（1ヶ月未満・2〜3ヶ月）：継続・追加配信', body: '1ヶ月未満421名が本送信の主動力。2〜3ヶ月層も12名が複数閲覧し再活性化の窓がある。GW期間中に2nd配信で来店を確実に取りに行く。' },
+    { quad: 'q4', title: '▽ 低反応層 › 1〜2ヶ月離反（105名）：要優先対応', body: '105名送信に対しLP到達わずか18名。件名差し替え＋送信時間帯の検証を推奨。' },
+    { quad: 'q4', title: '▽ 低反応層 › 3ヶ月以上離反（432名）：休眠掘り起こし', body: '432名に対しLP到達81名。「久しぶりの方へ」訴求で離反期間別の独立配信試行を推奨。' },
+    { quad: 'sim', title: '📋 ターゲット条件の緩和提案', body: '今回の絞り込み条件を緩和し、1〜3年以内の離反会員様まで対象を広げることで追加来店が見込めます。3年以上離反の会員様は対象外推奨。' },
+  ],
+};
+// ══════════════════════════════════════════
+//  ▲▲ データここまで ▲▲
+// ══════════════════════════════════════════
+
+const fmt  = n => n != null ? Math.round(n).toLocaleString('ja-JP') : '―';
+const fmtd = n => n != null ? n.toFixed(1) : '―';
+const pct  = (a,b) => b ? (a/b*100).toFixed(1)+'%' : '―';
+const tagHTML = t => `<span class="tag tag-${t}">${{q1:'優良反応層',q2:'高来店層',q3:'関心限定層',q4:'低反応層'}[t]||t}</span>`;
+
+// ── Header ─────────────────────────────
+document.getElementById('gen-date').textContent = '作成日：' + new Date().toLocaleDateString('ja-JP');
+(function initHeader() {
+  document.getElementById('store-name').value    = DATA.store;
+  document.getElementById('campaign-name').value = DATA.campaign;
+  syncTitle();
+  document.getElementById('hf-machines').textContent = DATA.machines ? DATA.machines + '台' : '―';
+  document.getElementById('hf-send-id').textContent = DATA.sendId;
+  const d = new Date(DATA.datetime);
+  const ds = d.toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  document.getElementById('hf-datetime').textContent   = ds;
+  if (DATA.campaignType) {
+    document.getElementById('hf-campaign-type').textContent = DATA.campaignType;
+    document.getElementById('hf-campaign-type-wrap').style.display = '';
+  }
+})();
+function syncTitle() {}
+
+// ── KPI ────────────────────────────────
+document.getElementById('kpi-reserved').textContent = fmt(DATA.reserved) + '通';
+document.getElementById('kpi-sent').textContent     = fmt(DATA.sent) + '通';
+document.getElementById('kpi-sent-sub').textContent = '（予約の' + pct(DATA.sent, DATA.reserved) + '）';
+document.getElementById('kpi-lp').textContent       = fmt(DATA.lpViews) + '名';
+document.getElementById('kpi-lp-sub').textContent   = '送信の' + pct(DATA.lpViews, DATA.sent);
+document.getElementById('kpi-multi').textContent    = fmt(DATA.multiViews) + '名';
+document.getElementById('kpi-multi-sub').textContent = 'LP閲覧の' + pct(DATA.multiViews, DATA.lpViews);
+document.getElementById('kpi-pv').textContent       = fmt(DATA.totalPV) + 'PV';
+document.getElementById('kpi-visits').textContent    = fmt(DATA.visits) + '名';
+document.getElementById('kpi-visits-sub').textContent = '送信成功の' + pct(DATA.visits, DATA.sent);
+
+// ── カード補正テーブル ─────────────────
+(function buildCorrection() {
+  const tbody = document.getElementById('correction-tbody');
+  if (!tbody) return;
+  let totalRecorded = 0, totalEstimated = 0;
+  DATA.segments.forEach(g => {
+    const sent       = g.sent   || 0;
+    const visits     = g.visits || 0;
+    const estimatedRaw = g.cardRate ? Math.round(sent * g.cardRate) : visits;
+    const estimated  = Math.max(estimatedRaw, visits); // 記録値を下回らない
+    const unrecorded = Math.max(0, estimated - visits);
+    totalRecorded  += visits;
+    totalEstimated += estimated;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="tl"><strong>${g.label}</strong></td>
+      <td>${fmt(sent)}名</td>
+      <td>${fmt(visits)}名</td>
+      <td>約${(g.cardRate * 100).toFixed(1)}%</td>
+      <td class="green-val">約${fmt(estimated)}名</td>
+      <td class="blue-val">+${fmt(unrecorded)}名</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  const totalUnrecorded = Math.max(0, totalEstimated - totalRecorded);
+  const totalTr = document.createElement('tr');
+  totalTr.className = 'total-row';
+  totalTr.innerHTML = `
+    <td class="tl"><strong>合計</strong></td>
+    <td>${fmt(DATA.sent)}名</td>
+    <td>${fmt(totalRecorded)}名</td>
+    <td>—</td>
+    <td class="green-val">約${fmt(totalEstimated)}名</td>
+    <td class="blue-val">+${fmt(totalUnrecorded)}名</td>
+  `;
+  tbody.appendChild(totalTr);
+  // サマリーカード更新
+  const elRec = document.getElementById('correction-recorded-val');
+  const elUnr = document.getElementById('correction-unrecorded-val');
+  const elTot = document.getElementById('correction-total-val');
+  if (elRec) elRec.textContent = fmt(totalRecorded) + '名';
+  if (elUnr) elUnr.textContent = '+' + fmt(totalUnrecorded) + '名';
+  if (elTot) elTot.textContent = '約' + fmt(totalEstimated) + '名';
+  // 効果測定日数インフォ表示
+  const mdInfo = document.getElementById('measurement-days-info');
+  if (mdInfo && DATA.measurementDays) {
+    const refDays = Math.min(DATA.measurementDays, 30);
+    const overNote = DATA.measurementDays > 30
+      ? `（実測${DATA.measurementDays}日 → 30日データで代替）` : '';
+    mdInfo.innerHTML = `📅 想定効果測定日数: <strong style="color:var(--blue)">${DATA.measurementDays}日</strong>　想定来店率: <strong style="color:var(--blue)">${refDays}日</strong>の実績値を参照${overNote}`;
+    if (DATA.measurementDays > 30) {
+      const note = document.querySelector('.correction-note');
+      if (note) {
+        const ann = document.createElement('div');
+        ann.style.cssText = 'margin-top:6px;font-size:11px;color:var(--amber);font-weight:600;';
+        ann.textContent = `⚠ 効果測定日数が30日を超えています（${DATA.measurementDays}日）。30日データで代替算出しています。`;
+        note.appendChild(ann);
+      }
+    }
+  }
+})();
+
+// ── 詳細テーブル ────────────────────────
+(function buildDetail() {
+  const tbody = document.getElementById('detail-tbody');
+  let tSent=0, tLp=0, tMulti=0, tEst=0;
+  DATA.segments.forEach(g => {
+    tSent += g.sent; tLp += g.lp; tMulti += (g.multi||0);
+    const tVisit = (g.visits||0);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="tl"><strong>${g.label}</strong></td>
+      <td>${fmt(g.sent)}名</td>
+      <td>${fmt(g.lp)}名</td>
+      <td>${g.lpRate !== undefined ? g.lpRate+'%' : pct(g.lp,g.sent)}</td>
+      <td class="green-val">${fmt(tVisit)}名</td>
+      <td class="green-val">${g.visitRate !== undefined ? g.visitRate+'%' : '―'}</td>
+      <td>${tagHTML(g.tag)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  const totalVisits = DATA.segments.reduce((s,g)=>s+(g.visits||0),0);
+  const totalVisitRate = tSent ? (totalVisits/tSent*100).toFixed(1)+'%' : '―';
+  const totalLpRate    = tSent ? (tLp/tSent*100).toFixed(1)+'%'        : '―';
+  const tr = document.createElement('tr');
+  tr.className = 'total-row';
+  tr.innerHTML = `<td class="tl">合計</td><td>${fmt(tSent)}名</td><td>${fmt(tLp)}名</td><td>${totalLpRate}</td><td class="blue-val">${fmt(totalVisits)}名</td><td class="blue-val">${totalVisitRate}</td><td>—</td>`;
+  tbody.appendChild(tr);
+})();
+
+// ── シミュレーション ────────────────────
+(function buildSim() {
+  // 赤（左）: 実態推計の補正後推定実来店者数を使用
+  // correction-total-val が設定されるのを待つため、buildCorrection()後に値を読む
+  const correctionTotal = (() => {
+    let total = 0;
+    DATA.segments.forEach(g => {
+      const est = g.cardRate ? Math.round(g.sent * g.cardRate) : g.visits;
+      total += Math.max(est, g.visits);
+    });
+    return total;
+  })();
+
+  const simSegs = DATA.unsentSegments.filter(g => g.label !== '3年以上');
+  const hasSimData = simSegs.length > 0;
+
+  let additionalEst = 0;
+  const tbody = document.getElementById('sim-tbody');
+
+  if (hasSimData) {
+    // 第1パス：バースケーリング用に最大値を算出
+    const rowData = simSegs.map(g => {
+      const seg      = DATA.segments.find(s => s.label === g.label);
+      const actual   = seg ? seg.visits : 0;
+      const estVisit = Math.round(g.unsentCount * g.cardRate);
+      return { g, actual, estVisit };
+    });
+    const barMax = Math.max(...rowData.map(r => r.actual + r.estVisit), 1);
+
+    // 第2パス：行を生成
+    rowData.forEach(({ g, actual, estVisit }) => {
+      additionalEst += estVisit;
+      const lpRate   = g.lpRate;
+      const cardRate = g.cardRate;
+      const estLp    = Math.round(g.unsentCount * lpRate);
+      const pctActual   = (actual   / barMax * 100).toFixed(1);
+      const pctEstVisit = (estVisit / barMax * 100).toFixed(1);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="tl"><strong>${g.label}</strong></td>
+        <td>${fmt(g.unsentCount)}名</td>
+        <td>${(lpRate*100).toFixed(1)}%</td>
+        <td>約${fmt(estLp)}名</td>
+        <td>約${(cardRate*100).toFixed(1)}%</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div style="flex:1;display:flex;height:12px;border-radius:3px;overflow:hidden;background:#f1f5f9;min-width:60px;">
+              <div style="width:${pctActual}%;background:#fca5a5;min-width:${actual>0?'3px':'0'};"></div>
+              <div style="width:${pctEstVisit}%;background:#60a5fa;min-width:${estVisit>0?'3px':'0'};"></div>
+            </div>
+            <span style="color:#3b82f6;font-weight:700;font-size:12px;white-space:nowrap;">+約${fmt(estVisit)}名</span>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } else {
+    // 設置台数未設定の場合
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="6" style="text-align:center;color:var(--gray-400);padding:16px;">設置台数データが未設定のため試算できません</td>`;
+    tbody.appendChild(tr);
+  }
+
+  const total = correctionTotal + additionalEst;
+  document.getElementById('sim-actual-val').textContent     = '約' + fmt(correctionTotal) + '名';
+  document.getElementById('sim-actual-sub').textContent     = '実態推計の推定実来店者数';
+  document.getElementById('sim-additional-val').textContent = hasSimData ? '+約' + fmt(additionalEst) + '名' : '―';
+  document.getElementById('sim-additional-sub').textContent = '未送信会員への追加見込み';
+  document.getElementById('sim-total-val').textContent      = hasSimData ? '約' + fmt(total) + '名' : '―';
+  document.getElementById('sim-total-sub').textContent      = '合計見込み来店者数';
+
+  // 所見・コメント欄への自動コメント挿入
+  if (hasSimData && DATA.campaignType) {
+    const simComment = document.getElementById('sim-comment');
+    const maxLabel   = DATA.maxSegment || simSegs[simSegs.length - 1]?.label || '';
+    const typeNote   = DATA.campaignType === 'バースデー'
+      ? `（バースデー施策：誕生日月のお客様のみ対象 ≒ 全体の1/12で試算）`
+      : '';
+    simComment.style.display = '';
+    simComment.innerHTML =
+      `<div style="padding:10px 14px;background:var(--green-light);border-radius:6px;">` +
+        `<div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:5px;">📋 条件緩和シミュレーション</div>` +
+        `<div style="font-size:12px;line-height:1.8;color:#1e293b;">` +
+          `今回の配信対象（${DATA.campaignType}）の絞り込み条件を緩和し、離反期間〜${maxLabel}まで対象を広げた場合${typeNote}、` +
+          `追加で <strong style="color:var(--green);">約${fmt(additionalEst)}名</strong> の再来店が見込めます。` +
+          `実態推計の推定実来店者数（約${fmt(correctionTotal)}名）と合わせると、` +
+          `合計 <strong style="color:var(--amber);">約${fmt(total)}名</strong> の再来店が期待できます。` +
+        `</div>` +
+      `</div>`;
+  }
+})();
+
+// ── アクションプラン ────────────────────
+(function buildActions() {
+  const grid = document.getElementById('action-grid');
+  DATA.actions.forEach(a => {
+    const div = document.createElement('div');
+    div.className = 'action-item a' + (a.quad || '');
+    const badge = a.lowSample
+      ? `<span style="display:inline-block;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:6px;vertical-align:middle;">参考値 n=${a.sentCount}</span>`
+      : '';
+    const note = a.lowSample
+      ? `<div style="margin-top:6px;padding-top:5px;border-top:1px solid #fde68a;font-size:10px;color:#92400e;">※ 送信数が少ないため転換率は参考値です。データ蓄積後に再評価してください。</div>`
+      : '';
+    div.innerHTML = `<strong>${a.title}${badge}</strong>${a.body}${note}`;
+    grid.appendChild(div);
+  });
+})();
+
+// ── フッター ────────────────────────────
+(function buildFooter() {
+  const d = new Date(DATA.datetime);
+  const ds = d.toLocaleDateString('ja-JP');
+  document.getElementById('report-footer').innerHTML =
+    `※ LP支持数 = 送信成功数に対しLPを1回以上閲覧した人の実数 ／ 複数閲覧者数 = 同一LPを2回以上閲覧した人の実数<br>` +
+    `※ 分析対象：${DATA.store} ${DATA.campaign} SMS（送信ID ${DATA.sendId}）／ 配信日：${ds}<br>` +
+    `※ カード未使用来店推計はあくまで補正参考値。<br>` +
+    `© Pix Inc. All Rights Reserved.`;
+})();
+
+// ── 4象限バブルチャート ─────────────────
+(function buildScatter() {
+  const chartSegsAvg = DATA.ageSegments || DATA.segments;
+  const totalSent  = chartSegsAvg.reduce((s,g)=>s+g.sent,   0);
+  const totalLP    = chartSegsAvg.reduce((s,g)=>s+g.lp,    0);
+  const totalVisit = chartSegsAvg.reduce((s,g)=>s+g.visits,0);
+  const avgX = totalVisit / totalSent * 100;
+  const avgY = totalLP    / totalSent * 100;
+  document.getElementById('avg-legend').textContent =
+    `青破線 = 全体平均（来店転換率: ${avgX.toFixed(1)}%　LP支持率: ${avgY.toFixed(1)}%）`;
+
+  const colors = {
+    q1: { bg: '#7bc97bcc', border: '#2a802a' },
+    q2: { bg: '#7ab4f0cc', border: '#1a4f9e' },
+    q3: { bg: '#f5d06acc', border: '#c27803' },
+    q4: { bg: '#e88888cc', border: '#922' },
+  };
+
+  const quadrantPlugin = {
+    id: 'quadrantLines',
+    beforeDatasetsDraw(chart) {
+      const { ctx, chartArea, scales: { x, y } } = chart;
+      const ax = x.getPixelForValue(avgX);
+      const ay = y.getPixelForValue(avgY);
+      ctx.save();
+      ctx.fillStyle = 'rgba(123,201,123,0.10)';
+      ctx.fillRect(ax, chartArea.top, chartArea.right-ax, ay-chartArea.top);
+      ctx.fillStyle = 'rgba(240,201,74,0.10)';
+      ctx.fillRect(chartArea.left, chartArea.top, ax-chartArea.left, ay-chartArea.top);
+      ctx.fillStyle = 'rgba(122,170,232,0.10)';
+      ctx.fillRect(ax, ay, chartArea.right-ax, chartArea.bottom-ay);
+      ctx.fillStyle = 'rgba(232,136,136,0.12)';
+      ctx.fillRect(chartArea.left, ay, ax-chartArea.left, chartArea.bottom-ay);
+      ctx.strokeStyle = '#1a56db'; ctx.lineWidth = 1.2; ctx.setLineDash([5,4]);
+      ctx.beginPath();
+      ctx.moveTo(ax, chartArea.top);    ctx.lineTo(ax, chartArea.bottom);
+      ctx.moveTo(chartArea.left, ay);   ctx.lineTo(chartArea.right, ay);
+      ctx.stroke(); ctx.setLineDash([]);
+      const font = "bold 11px 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif";
+      ctx.font = font;
+
+      function drawLabel(text, x, y, bgColor, borderColor, textColor, align) {
+        const pad = { x: 7, y: 4 };
+        const w = ctx.measureText(text).width;
+        const bx = align === 'right' ? x - w - pad.x * 2 : x;
+        const by = y - 13;
+        const r = 4, h = 13 + pad.y;
+        const rw = w + pad.x * 2;
+        ctx.beginPath();
+        ctx.moveTo(bx + r, by);
+        ctx.lineTo(bx + rw - r, by);
+        ctx.quadraticCurveTo(bx + rw, by, bx + rw, by + r);
+        ctx.lineTo(bx + rw, by + h - r);
+        ctx.quadraticCurveTo(bx + rw, by + h, bx + rw - r, by + h);
+        ctx.lineTo(bx + r, by + h);
+        ctx.quadraticCurveTo(bx, by + h, bx, by + h - r);
+        ctx.lineTo(bx, by + r);
+        ctx.quadraticCurveTo(bx, by, bx + r, by);
+        ctx.closePath();
+        ctx.fillStyle = bgColor;
+        ctx.fill();
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.fillStyle = textColor;
+        ctx.fillText(text, bx + pad.x, y);
+      }
+
+      drawLabel('優良反応層 ★', chartArea.right - 8,  chartArea.top + 16,   '#2d6a2d', '#b5d5b5', '#f0f7f0', 'right');
+      drawLabel('関心限定層 ▲', chartArea.left  + 8,  chartArea.top + 16,   '#7a5f1e', '#dfc98a', '#fdf8ee', 'left');
+      drawLabel('高来店層 ♦',   chartArea.right - 8,  chartArea.bottom - 8, '#2c4f80', '#b0c4e0', '#f0f4fb', 'right');
+      drawLabel('低反応層 ▽',   chartArea.left  + 8,  chartArea.bottom - 8, '#922222', '#e8a0a0', '#fdecea', 'left');
+      ctx.restore();
+    }
+  };
+
+  const labelPlugin = {
+    id: 'bubbleLabels',
+    afterDatasetsDraw(chart) {
+      const { ctx, chartArea } = chart;
+      ctx.save();
+      ctx.font = "bold 11px 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif";
+      ctx.textAlign = 'center';
+      const cornerSafe = 38; // コーナーラベルとの最低距離
+      chart.data.datasets.forEach((ds, idx) => {
+        chart.getDatasetMeta(idx).data.forEach(pt => {
+          const r = pt.options.radius;
+          // 上に置いたときのY座標
+          const yAbove = pt.y - r - 4;
+          // コーナーに近い（上端・右端・左端）場合は下に配置
+          const nearTop   = yAbove < chartArea.top + cornerSafe;
+          const nearRight = pt.x > chartArea.right - 80;
+          const nearLeft  = pt.x < chartArea.left  + 80;
+          const labelY = (nearTop || (nearRight && nearLeft))
+            ? pt.y + r + 14   // 下に配置
+            : yAbove;          // 上に配置（デフォルト）
+
+          ctx.shadowColor = 'white';
+          ctx.shadowBlur = 4;
+          ctx.strokeStyle = 'white';
+          ctx.lineWidth = 3;
+          ctx.strokeText(ds.label, pt.x, labelY);
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#222';
+          ctx.fillText(ds.label, pt.x, labelY);
+
+          // sent < 20 のとき n=XX バッジを追加
+          const rawN = pt.$context && pt.$context.raw ? pt.$context.raw.n : (ds.data[0] && ds.data[0].n);
+          if (rawN != null && rawN < 20) {
+            const badgeText = 'n=' + rawN;
+            ctx.font = "10px 'Hiragino Sans', 'Yu Gothic UI', sans-serif";
+            const bw = ctx.measureText(badgeText).width + 8;
+            const bh = 14;
+            const bx = pt.x - bw / 2;
+            const by = labelY + 3;
+            ctx.fillStyle = '#fef3c7';
+            ctx.strokeStyle = '#d97706';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(bx, by, bw, bh, 3);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#92400e';
+            ctx.fillText(badgeText, pt.x, by + 10);
+            ctx.font = "bold 11px 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif";
+          }
+        });
+      });
+      ctx.restore();
+    }
+  };
+
+  // X=来店転換率(%) Y=LP支持率(%) — 年代別
+  const chartSegs = DATA.ageSegments || DATA.segments;
+  const allX   = chartSegs.map(g=>g.visitRate);
+  const allY   = chartSegs.map(g=>g.lpRate);
+  const minX   = Math.min(...allX);
+  const minY   = Math.min(...allY);
+  const rawMaxX = Math.max(...allX);
+  const rawMaxY = Math.max(...allY);
+  const rangeX = rawMaxX - minX;
+  const rangeY = rawMaxY - minY;
+  const axisMinX = Math.max(0, minX - rangeX * 0.12);
+  const axisMinY = Math.max(0, minY - rangeY * 0.12);
+  const maxX = rawMaxX + rangeX * 0.18;
+  const maxY = rawMaxY + rangeY * 0.18;
+
+  const sentArr = chartSegs.map(g => g.sent);
+  const minSent = Math.min(...sentArr);
+  const maxSent = Math.max(...sentArr);
+
+  new Chart(document.getElementById('scatter'), {
+    type: 'bubble',
+    data: {
+      datasets: chartSegs.map(g => {
+        const lowSample = g.sent < 20;
+        return {
+          label: g.label,
+          data: [{ x: g.visitRate, y: g.lpRate, r: Math.max(8, 9 + (g.sent - minSent) / Math.max(1, maxSent - minSent) * 16), n: g.sent, visits: g.visits, lp: g.lp }],
+          backgroundColor: lowSample ? 'rgba(161,161,170,0.20)' : colors[g.tag].bg,
+          borderColor:     lowSample ? '#a1a1aa'                : colors[g.tag].border,
+          borderWidth: 2,
+          borderDash: lowSample ? [5, 4] : [],
+        };
+      })
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const d = ctx.raw;
+              return ` ${ctx.dataset.label}  送信:${fmt(d.n)}名  来店転換率:${d.x}%  LP支持率:${d.y}%  来店:${fmt(d.visits)}名  LP閲覧:${fmt(d.lp)}名`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          min: Math.floor(axisMinX), max: Math.ceil(maxX),
+          title: { display: true, text: '来店転換率（%）', font:{size:11,weight:'600'}, color:'#444' },
+          ticks: { font:{size:12}, stepSize: 10, callback: v => v+'%' },
+          grid: { color: '#eef2f7' }
+        },
+        y: {
+          min: Math.floor(axisMinY), max: Math.ceil(maxY),
+          title: { display: true, text: 'LP支持率（%）', font:{size:11,weight:'600'}, color:'#444' },
+          ticks: { font:{size:12}, stepSize: 5, callback: v => v+'%' },
+          grid: { color: '#eef2f7' }
+        }
+      }
+    },
+    plugins: [quadrantPlugin, labelPlugin]
+  });
+
+  // 送信数 < 20 のセグメントが1つでもあればフッター注釈を表示
+  if (chartSegs.some(g => g.sent < 20)) {
+    const noteEl = document.getElementById('low-sample-note');
+    if (noteEl) noteEl.style.display = 'block';
+  }
+
+  // 象限カード
+  const qMap = { q1: [], q2: [], q3: [], q4: [] };
+  (DATA.ageSegments || DATA.segments).forEach(g => qMap[g.tag].push(g));
+  ['q1','q2','q3','q4'].forEach(q => {
+    const segs = qMap[q];
+    const statsEl = document.getElementById(q+'-stats');
+    const listEl  = document.getElementById(q+'-list');
+    if (segs.length > 0) {
+      const totalSent  = segs.reduce((s,g) => s + g.sent,   0);
+      const totalVisit = segs.reduce((s,g) => s + g.visits, 0);
+      const totalLp    = segs.reduce((s,g) => s + g.lp,     0);
+      const avgVisit   = totalSent ? (totalVisit/totalSent*100).toFixed(1) : '―';
+      const avgLp      = totalSent ? (totalLp/totalSent*100).toFixed(1)    : '―';
+      const badgeBg    = {q1:'#2d6a2d',q2:'#2c4f80',q3:'#7a5f1e',q4:'#922222'};
+      const badgeBorder = {q1:'#b5d5b5',q2:'#b0c4e0',q3:'#dfc98a',q4:'#e8a0a0'};
+      const badges = segs.map(g =>
+        `<span style="display:inline-block;white-space:nowrap;background:${badgeBg[g.tag]};color:#fff;border:1px solid ${badgeBorder[g.tag]};border-radius:3px;padding:2px 7px;font-size:10px;font-weight:700;margin:1px 2px;">${g.label}</span>`
+      ).join('');
+      statsEl.innerHTML = `
+        <div style="margin-bottom:5px;">${badges}</div>
+        <div class="qi"><div class="qv">${avgVisit}%</div><div class="qsl">来店転換率</div></div>
+        <div class="qi"><div class="qv">${avgLp}%</div><div class="qsl">LP支持率</div></div>
+      `;
+    } else {
+      statsEl.innerHTML = `
+        <div class="qi"><div class="qv">0名</div><div class="qsl">LP閲覧</div></div>
+        <div class="qi"><div class="qv">0名</div><div class="qsl">複数閲覧</div></div>
+      `;
+    }
+    const comments = DATA.quadComments[q] || [];
+    listEl.innerHTML = comments.length
+      ? comments.map(c => `<li>${c}</li>`).join('')
+      : '<li>該当セグメントなし</li>';
+  });
+})();
+
+
+// ── スクロール深度テーブル生成 ──────────────
+(function buildScrollDepth() {
+  const tbody = document.getElementById('scroll-depth-tbody');
+  if (!tbody) return;
+
+  const maxPct = Math.max(...DATA.scrollDepths.map(d => d.pct));
+  const judgeMap = {
+    keep: '<span class="jtag j-keep">残す</span>',
+    fix:  '<span class="jtag j-fix">改善</span>',
+    del:  '<span class="jtag j-del">削除候補</span>',
+  };
+  const qtagMap = {
+    q1: '<span class="qtag-lp qtag-q1-lp">★ 注目エリア</span>',
+    q2: '<span class="qtag-lp qtag-q2-lp">短時間反応</span>',
+    q3: '<span class="qtag-lp qtag-q3-lp">▲ やや弱い</span>',
+    q4: '<span class="qtag-lp qtag-q4-lp">✕ 改善優先</span>',
+  };
+
+  // 到達率: Scroll CSVがあれば d.reach を使用、なければ注目割合から逆算
+  const hasReachData = DATA.scrollDepths.length > 0 && DATA.scrollDepths[0].reach != null;
+  let reachRates;
+  if (hasReachData) {
+    reachRates = DATA.scrollDepths.map(d => d.reach);
+  } else {
+    const totalPct = DATA.scrollDepths.reduce((sum, d) => sum + d.pct, 0);
+    let cumDropoff = 0;
+    reachRates = DATA.scrollDepths.map(d => {
+      const rate = Math.round((totalPct - cumDropoff) / totalPct * 100);
+      cumDropoff += d.pct;
+      return rate;
+    });
+  }
+
+  DATA.scrollDepths.forEach((d, i) => {
+    const isMax = d.pct === maxPct;
+    const barW  = Math.round(d.pct / maxPct * 100);
+    const barColor = {q1:'#1a9b5f', q2:'var(--blue)', q3:'var(--amber)', q4:'var(--red)'}[d.tag];
+    const depthLabel = isMax ? `<strong>${d.depth}% 🔥</strong>` : `${d.depth}%`;
+    const pctColor   = isMax ? `style="color:var(--red);font-weight:700;"` : '';
+    const reach = reachRates[i];
+    const reachColor = reach >= 70 ? 'var(--green)' : reach >= 40 ? 'var(--blue)' : reach >= 20 ? 'var(--amber)' : 'var(--red)';
+
+    const tr = document.createElement('tr');
+    tr.className = 'depth-row' + (isMax ? ' highlight-row-lp' : '');
+    if (isMax) tr.style.background = '#fff3f0';
+    tr.innerHTML = `
+      <td>${depthLabel}</td>
+      <td><div class="bar-wrap-lp" style="gap:4px;"><div class="bar-bg-lp" style="flex:1;background:var(--gray-200);border-radius:3px;height:10px;overflow:hidden;"><div class="bar-lp" style="width:${reach}%;background:${reachColor};height:100%;"></div></div><span class="bar-val-lp" style="min-width:34px;text-align:right;font-weight:600;color:${reachColor};">${reach}%</span></div></td>
+      <td><div class="bar-wrap-lp" style="gap:4px;"><div class="bar-bg-lp" style="flex:1;background:var(--gray-200);border-radius:3px;height:10px;overflow:hidden;"><div class="bar-lp" style="width:${barW}%;background:${barColor};height:100%;"></div></div><span class="bar-val-lp" style="min-width:40px;text-align:right;" ${pctColor}>${d.pct}%</span></div></td>
+      <td>${qtagMap[d.tag] || ''}</td>
+      <td>${judgeMap[d.judge] || ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+})();
+
+
+// ── 所見・コメントの見出しスタイリング ─────────
+(function styleMemoHeadings() {
+  const memo = document.querySelector('.memo-content');
+  if (!memo) return;
+  memo.innerHTML = memo.innerHTML.replace(
+    /(【[^】]+】)/g,
+    '<span class="memo-heading">$1</span>'
+  );
+})();
+
+// ── SMS本文分析セクション ─────────────────────
+(function buildSmsAnalysis() {
+  if (!DATA.smsText) return;
+  document.getElementById('sms-section').style.display = '';
+
+  const scoreMap = {
+    good:    { label: '✅ 良好：興味喚起できている文章です',  cls: 'score-good'    },
+    caution: { label: '⚠️ 要確認：一部改善の余地があります', cls: 'score-caution' },
+    review:  { label: '❗ 要改善：LP誘導が弱い可能性あり',   cls: 'score-review'  },
+    unknown: { label: '分析対象外',                           cls: 'score-caution' },
+  };
+  const s = scoreMap[DATA.smsScore] || scoreMap.unknown;
+  const badge = document.getElementById('sms-score-badge');
+  badge.innerHTML = `<span class="sms-score-badge ${s.cls}">${s.label}</span>`;
+
+  document.getElementById('sms-text-display').textContent = DATA.smsText;
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMS配信分析レポート</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --blue:       #3d6b9e;
+    --blue-light: #eaf0f8;
+    --blue-mid:   #6a93bd;
+    --green:      #3a8c6e;
+    --green-light:#e6f4ef;
+    --amber:      #b07d2e;
+    --amber-light:#faf3e0;
+    --orange:     #d97706;
+    --red:        #b85454;
+    --red-light:  #fceaea;
+    --gray-50:    #fafafa;
+    --gray-100:   #f4f4f5;
+    --gray-200:   #e4e4e7;
+    --gray-400:   #a1a1aa;
+    --gray-600:   #52525b;
+    --gray-800:   #27272a;
+    --radius:     8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+    background: #f2f3f5;
+    color: var(--gray-800);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  /* ══ WRAPPER ══ */
+  .page-wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 12px 12px 0;
+    background: #f2f3f5;
+  }
+
+  /* ══ HEADER ══ */
+  .report-header {
+    background: linear-gradient(135deg, #2e5c9a 0%, #3d6b9e 50%, #4878b0 100%);
+    padding: 20px 24px 0;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    border-radius: 12px 12px 0 0;
+  }
+  .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .report-title { font-size: 24px; font-weight: 800; color: #fff; letter-spacing: 0.02em; }
+  .header-right { display: flex; gap: 12px; align-items: center; }
+  .generated-at-txt { font-size: 12px; color: rgba(255,255,255,0.7); }
+  .header-fields {
+    margin: 0 -32px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+  }
+  .hf-row {
+    display: flex; gap: 0;
+    background: rgba(255,255,255,0.08);
+    padding: 12px 20px;
+  }
+  .hf-row-2 {
+    display: flex; gap: 0; align-items: center;
+    background: rgba(255,255,255,0.04);
+    padding: 10px 20px;
+    border-top: 1px solid rgba(255,255,255,0.10);
+  }
+  .hf-row-2 .hf:only-child { border-right: none; }
+  .hf-title-grow { flex: 1; min-width: 0; }
+  .hf {
+    padding: 0 24px;
+    border-right: 1px solid rgba(255,255,255,0.15);
+  }
+  .hf:first-child { padding-left: 0; }
+  .hf:last-child { border-right: none; }
+  .hf label { font-size: 10px; color: rgba(255,255,255,0.6); display: block; margin-bottom: 4px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .hf span  { font-size: 14px; font-weight: 700; color: #fff; }
+  .edit-field {
+    border: none;
+    border-bottom: none;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    font-family: inherit;
+    min-width: 140px;
+    outline: none;
+  }
+  .edit-field:focus { border-bottom-color: rgba(255,255,255,0.8); }
+  .edit-field::placeholder { color: rgba(255,255,255,0.4); }
+
+  /* ══ LAYOUT ══ */
+  .main { padding: 16px 24px; }
+  .section { margin-bottom: 24px; }
+  .sec-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--blue);
+    background: linear-gradient(90deg, var(--blue-light) 60%, rgba(234,240,248,0) 100%);
+    border-left: 4px solid var(--blue);
+    padding: 8px 14px;
+    margin-bottom: 14px;
+    letter-spacing: 0.04em;
+    border-radius: 0 6px 6px 0;
+  }
+
+  /* ══ SUMMARY BOX ══ */
+  .summary-box {
+    background: #2c3e50;
+    color: #ecf0f1;
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    font-size: 13px;
+    line-height: 1.7;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .summary-box strong { font-size: 14px; display: block; margin-bottom: 4px; letter-spacing: 0.03em; color: #fff; }
+  .summary-box [contenteditable] { outline: none; }
+  .summary-box [contenteditable]:focus { background: rgba(255,255,255,0.08); border-radius: 4px; }
+
+  /* ══ KPI ══ */
+  .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .kpi {
+    border-radius: var(--radius);
+    padding: 16px 14px 14px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .kpi-blue  { background: linear-gradient(160deg, #eaf2ff 0%, #d0e4ff 100%); border: 1px solid #b0ccf0; }
+  .kpi-green { background: linear-gradient(160deg, #e6f9f0 0%, #c8eedd 100%); border: 1px solid #90d4b0; }
+  .kpi-amber { background: linear-gradient(160deg, #fef8e6 0%, #faecc8 100%); border: 1px solid #e8cc80; }
+  .kpi .lbl { font-size: 12px; font-weight: 700; color: var(--gray-600); margin-bottom: 8px; letter-spacing: 0.02em; }
+  .kpi .val { font-size: 28px; font-weight: 800; line-height: 1.1; }
+  .kpi-blue  .val { color: var(--blue); }
+  .kpi-green .val { color: var(--green); }
+  .kpi-amber .val { color: var(--amber); }
+  .kpi .sub { font-size: 11px; color: var(--gray-500); margin-top: 4px; }
+
+  /* ══ CARD CORRECTION ══ */
+  .correction-box {
+    background: var(--blue-light);
+    border: 1px solid #c5d8ee;
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    box-shadow: 0 1px 4px rgba(61,107,158,0.08);
+  }
+  .correction-box .box-title {
+    font-size: 12px; font-weight: 700; color: var(--blue); margin-bottom: 10px;
+  }
+  .correction-box .note {
+    font-size: 11px; color: var(--gray-600); margin-bottom: 10px; line-height: 1.6;
+  }
+
+  /* ══ TABLE (共通) ══ */
+  .table-wrap { overflow-x: auto; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--gray-200); }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  thead th {
+    background: var(--blue-light);
+    color: var(--blue);
+    padding: 8px 10px;
+    text-align: center;
+    font-weight: 700;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+    border-bottom: 2px solid #c5d8ee;
+  }
+  tbody td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--gray-200);
+    text-align: center;
+    color: var(--gray-800);
+    background: white;
+  }
+  tbody tr:nth-child(even) td { background: #fafbfd; }
+  tbody tr:hover td { background: #f0f5fb; }
+  tbody tr.total-row td { background: var(--blue-light) !important; font-weight: 700; color: var(--blue); }
+  .tl { text-align: left; }
+  .num { font-variant-numeric: tabular-nums; }
+  .green-val { color: var(--green); font-weight: 700; }
+  .blue-val  { color: var(--blue);  font-weight: 700; }
+
+  /* ══ TAGS ══ */
+  .tag {
+    display: inline-block;
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .tag-q1 { background: #c8edc8; color: #1e6b1e; }
+  .tag-q2 { background: #c5d8f8; color: #1a4f9e; }
+  .tag-q3 { background: #fde9a0; color: #7a5800; }
+  .tag-q4 { background: #fcd5d2; color: #922; }
+
+  /* ══ 4 QUADRANT CHART ══ */
+  .quad-section {
+    display: grid;
+    grid-template-columns: 55fr 38fr;
+    gap: 12px;
+    margin-bottom: 8px;
+    align-items: start;
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+  .quad-section > * { min-width: 0; box-sizing: border-box; }
+  .quad-cards { display: grid; grid-template-columns: 1fr; gap: 6px; }
+  .chart-wrap { position: relative; height: 380px; }
+  .chart-legend { display: flex; justify-content: center; gap: 16px; margin-top: 6px; font-size: 11px; color: var(--gray-600); flex-wrap: wrap; }
+  .qcard { border-radius: var(--radius); padding: 6px 10px; }
+  .qcard .qcard-header { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .qcard .ql  { font-size: 13px; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap; }
+  .qcard h4   { font-size: 11px; margin: 0; color: var(--gray-600); font-weight: 600; }
+  .qcard .qs  { display: flex; gap: 6px; margin-bottom: 6px; }
+  .qcard .qi  { flex: 1; background: rgba(255,255,255,0.6); border-radius: 4px; padding: 3px 5px; text-align: center; }
+  .qcard .qv  { font-size: 13px; font-weight: 700; line-height: 1.1; }
+  .qcard .qsl { font-size: 9px; color: var(--gray-600); white-space: nowrap; }
+  .qcard ul   { list-style: none; font-size: 10px; line-height: 1.4; margin-top: 4px; }
+  .qcard li   { padding-left: 10px; position: relative; }
+  .qcard li::before { content: '・'; position: absolute; left: 0; }
+  .qc-star { background: #f0f7f0; border: 1px solid #b5d5b5; }
+  .qc-star .ql, .qc-star h4 { color: #2d6a2d; }
+  .qc-loyal { background: #f0f4fb; border: 1px solid #b0c4e0; }
+  .qc-loyal .ql, .qc-loyal h4 { color: #2c4f80; }
+  .qc-pot { background: #fdf8ee; border: 1px solid #dfc98a; }
+  .qc-pot .ql, .qc-pot h4 { color: #7a5f1e; }
+  .qc-cold { background: #fdecea; border: 1px solid #e8a0a0; }
+  .qc-cold .ql, .qc-cold h4 { color: #922; }
+
+  /* ══ SIMULATION ══ */
+  .sim-box {
+    background: var(--green-light);
+    border: 1px solid #b5d5c5;
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    box-shadow: 0 1px 4px rgba(58,140,110,0.08);
+  }
+  .sim-box .box-title {
+    font-size: 12px; font-weight: 700; color: var(--green); margin-bottom: 6px;
+  }
+  .sim-box .box-note {
+    font-size: 11px; color: var(--gray-600); margin-bottom: 12px; line-height: 1.6;
+  }
+  .sim-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .sim-card {
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    text-align: center;
+    border: 1px solid var(--gray-200);
+  }
+  .sim-card .sv { font-size: 22px; font-weight: 700; line-height: 1.1; }
+  .sim-card .sl { font-size: 10px; color: var(--gray-600); margin-top: 4px; }
+  .sim-card .ss { font-size: 10px; color: var(--gray-400); margin-top: 2px; }
+  .sc-actual   { background: #fef2f2; border: 1.5px solid #f5a3a3; }
+  .sc-actual .sv { color: #c0392b; }
+  .sc-sim      { background: #eff6ff; border: 1.5px solid #93c5fd; }
+  .sc-sim .sv  { color: #2563eb; }
+  .sc-delta    { background: #fffbeb; border: 1.5px solid #fbbf24; }
+  .sc-delta .sv { color: #d97706; }
+  .sim-arrow {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: var(--green); font-weight: 700;
+  }
+
+
+
+  .img-position-indicator {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(44,62,80,0.82);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 0 0 6px 6px;
+    text-align: center;
+    pointer-events: none;
+    letter-spacing: 0.04em;
+  }
+  /* ══ DEPTH HIGHLIGHT ══ */
+  .heatmap-img-wrap { position: relative; }
+  .depth-highlight-overlay {
+    position: absolute;
+    left: 0; right: 0;
+    background: rgba(255, 200, 0, 0.30);
+    border-top: 2px solid #e6a800;
+    border-bottom: 2px solid #e6a800;
+    pointer-events: none;
+    display: none;
+    z-index: 10;
+    transition: top 0.2s, height 0.2s;
+  }
+  tr.depth-row { cursor: pointer; transition: background 0.15s; }
+  tr.depth-row:hover td { background: #fffbe6 !important; }
+
+  /* ══ SMS分析 ══ */
+  .sms-analysis-box {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .sms-text-display {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 14px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    color: var(--gray-800);
+    margin-bottom: 14px;
+    font-family: inherit;
+  }
+  .sms-check-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .sms-check-item {
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .sms-check-item.ok   { background: var(--green-light); border: 1px solid #b5d5c5; }
+  .sms-check-item.warn { background: #fdf6ee; border: 1px solid #dfc98a; }
+  .sms-check-item.na   { background: #fdf6ee; border: 1px solid #dfc98a; }
+  .sms-check-item.info { background: var(--gray-50); border: 1px solid var(--gray-200); }
+  .sms-check-label { font-weight: 700; margin-bottom: 3px; }
+  .sms-check-item.ok   .sms-check-label { color: var(--green); }
+  .sms-check-item.warn .sms-check-label { color: var(--amber); }
+  .sms-check-item.na   .sms-check-label { color: var(--amber); }
+  .sms-check-item.info .sms-check-label { color: var(--gray-600); }
+  .sms-score-badge {
+    display: inline-block;
+    font-size: 12px; font-weight: 700;
+    padding: 3px 12px; border-radius: 20px; margin-bottom: 12px;
+  }
+  .score-good    { background: var(--green-light); color: var(--green); border: 1px solid #b5d5c5; }
+  .score-caution { background: #fdf6ee; color: var(--amber); border: 1px solid #dfc98a; }
+  .score-review  { background: var(--red-light); color: var(--red); border: 1px solid #e8a0a0; }
+
+  /* ══ SCROLL DEPTH / HEATMAP ══ */
+  .bar-wrap-lp { display: flex; align-items: center; gap: 5px; }
+  .bar-lp { height: 8px; border-radius: 3px; min-width: 2px; }
+  .bar-val-lp { font-size: 10px; color: var(--gray-600); white-space: nowrap; }
+  .jtag { display: inline-block; border-radius: 4px; padding: 1px 7px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+  .j-keep { background: #e6f7f0; color: #1a9b5f; border: 1px solid #a3d9bf; }
+  .j-fix  { background: #fdf6e3; color: #9a7000; border: 1px solid #e0c87a; }
+  .j-del  { background: var(--red-light); color: var(--red); border: 1px solid #e8b0b0; }
+  .highlight-row td { background: #fffbeb !important; font-weight: 600; }
+
+  .heatmap-section {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 16px;
+    align-items: stretch;
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .heatmap-section > div:first-child {
+    display: flex;
+    flex-direction: column;
+  }
+  .heatmap-img-wrap {
+    flex: 1;
+    overflow-y: auto;
+    border-radius: 6px;
+    border: 1px solid var(--gray-200);
+    max-height: 700px;
+  }
+  .heatmap-img-wrap::-webkit-scrollbar { width: 4px; }
+  .heatmap-img-wrap::-webkit-scrollbar-track { background: var(--gray-100); }
+  .heatmap-img-wrap::-webkit-scrollbar-thumb { background: var(--gray-400); border-radius: 2px; }
+  .heatmap-img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .heatmap-placeholder {
+    flex: 1;
+    background: var(--gray-100);
+    border-radius: 6px;
+    border: 1px dashed var(--gray-400);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--gray-400);
+    text-align: center;
+    line-height: 1.6;
+  }
+  .heatmap-note {
+    font-size: 10px; color: #5a6475;
+    background: var(--amber-light);
+    border: 1px solid #dfc98a;
+    border-radius: 5px;
+    padding: 5px 8px;
+    margin-bottom: 10px;
+  }
+  .qtag-lp { display: inline-block; border-radius: 4px; padding: 1px 7px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+  .qtag-q1-lp { background: #e6f7f0; color: #1a9b5f; }
+  .qtag-q2-lp { background: var(--blue-light); color: var(--blue); }
+  .qtag-q3-lp { background: var(--amber-light); color: var(--amber); }
+  .qtag-q4-lp { background: #fcd5d2; color: #922; }
+  .highlight-row-lp td { background: #fffbeb !important; font-weight: 600; }
+  .avg-row-lp td { background: var(--blue-light) !important; font-weight: 700; color: var(--blue); }
+
+  .decision-box {
+    background: white;
+    border-radius: var(--radius);
+    border: 1px solid var(--gray-200);
+    padding: 12px 14px;
+    margin-top: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .decision-box h3 { font-size: 11px; font-weight: 700; color: var(--blue); margin-bottom: 10px; }
+  .decision-items { display: flex; flex-wrap: wrap; gap: 8px; }
+  .decision-item {
+    background: var(--blue-light);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 11px;
+    min-width: 160px;
+    flex: 1;
+  }
+  .decision-item .di-pct { font-size: 18px; font-weight: 800; color: var(--blue); }
+  .decision-item .di-label { color: var(--gray-600); font-size: 10px; margin-top: 2px; }
+
+  /* ══ ACTION PLAN ══ */
+  .action-box {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    box-shadow: none;
+  }
+  .action-box .box-title { font-size: 12px; font-weight: 700; color: var(--blue); margin-bottom: 10px; }
+  .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .action-item {
+    font-size: 11px; line-height: 1.65;
+    border-radius: 6px; padding: 10px 12px;
+    border-left: 4px solid var(--gray-400);
+    background: white;
+  }
+  .action-item.aq1 { border-left-color: #3a7a3a; background: #f4fbf4; }
+  .action-item.aq2 { border-left-color: #2c4f80; background: #f2f5fb; }
+  .action-item.aq3 { border-left-color: #7a5f1e; background: #fdf9f0; }
+  .action-item.aq4 { border-left-color: #c0392b; background: #fdecea; }
+  .action-item.asim { border-left-color: var(--green); background: var(--green-light); }
+  .action-item strong { color: var(--gray-800); display: block; margin-bottom: 4px; font-size: 12px; }
+
+  /* ══ ISSUES ══ */
+  .issues-box {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    font-size: 11px;
+    line-height: 1.7;
+    margin-bottom: 18px;
+  }
+  .issues-box strong { color: var(--blue); }
+
+  /* ══ MEMO ══ */
+  .memo-card {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .memo-content {
+    font-size: 13px; color: var(--gray-800);
+    line-height: 23.4px;
+    white-space: pre-wrap;
+    font-family: inherit;
+    background-image: repeating-linear-gradient(
+      to bottom, transparent 0, transparent 22.4px,
+      var(--gray-200) 22.4px, var(--gray-200) 23.4px
+    );
+    background-size: 100% 23.4px;
+  }
+  .memo-heading {
+    font-weight: 800; font-size: 14px; color: var(--blue); letter-spacing: 0.03em;
+  }
+
+  /* ══ FOOTER ══ */
+  .report-footer {
+    font-size: 10px; color: var(--gray-400);
+    text-align: left;
+    border-top: 1px solid var(--gray-200);
+    padding-top: 8px;
+    line-height: 1.6;
+    margin-top: 8px;
+  }
+
+  @media print {
+    body { background: white; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-wrap">
+<!-- ══ HEADER ══ -->
+<div class="report-header">
+  <div class="header-top">
+    <div>
+      <div class="report-title" id="report-title">SMS施策 分析レポート</div>
+    </div>
+    <div class="header-right">
+      <span class="generated-at-txt" id="gen-date"></span>
     </div>
   </div>
   <div class="header-fields">
