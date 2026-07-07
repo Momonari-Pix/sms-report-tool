@@ -79,6 +79,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ── Onyx Emerald テーマ微調整 CSS ──
+st.markdown("""
+<style>
+.section-title { color:#34d399; font-size:12px; font-weight:500; letter-spacing:1.5px; margin:1.4rem 0 0.45rem; }
+[data-testid="stFileUploaderDropzone"] { background:#141416; border:1px dashed #2c2c30; border-radius:12px; transition:border-color .15s ease; }
+[data-testid="stFileUploaderDropzone"]:hover { border-color:#34d399; }
+[data-testid="stTextInput"] input, [data-testid="stNumberInput"] input { background:#141416 !important; border-radius:10px !important; border:1px solid #242427 !important; }
+[data-baseweb="select"] > div { background:#141416 !important; border-radius:10px !important; border-color:#242427 !important; }
+.stButton > button, [data-testid="stDownloadButton"] > button { border-radius:10px; font-weight:500; }
+hr { border-color:#242427 !important; }
+</style>
+""", unsafe_allow_html=True)
+
 # ── タイトル ──────────────────────────────────
 st.title('📊 SMS分析レポート 生成ツール')
 st.caption('必要なファイルをアップロードして「レポート生成」を押してください。')
