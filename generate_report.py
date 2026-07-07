@@ -1116,6 +1116,7 @@ def generate_report_core(
     urgency_status=None,        # '有'→ok / '無'→warn / None（自動判定）
     cta_status=None,            # '有'→ok / '無'→warn / None（自動判定）
     reuse_status=None,          # '無'→ok（使い回しなし）/ '有'→warn（使い回しあり）/ None（判定不可）
+    measurement_days=None,      # 手動設定時の想定効果測定日数（int）/ None のとき自動計算
 ):
     """
     レポートHTMLを生成して文字列で返す。
@@ -1145,6 +1146,10 @@ def generate_report_core(
         meta, segments, age_segments = parse_ko_xlsx(xlsx_path, visit_rate_data=visit_rate_data)
         html = inject_segments(html, segments)
         html = inject_age_segments(html, age_segments)
+
+    # 想定効果測定日数の手動上書き
+    if measurement_days is not None:
+        meta['measurementDays'] = int(measurement_days)
 
     # 設置台数・キャンペーン種別
     target_file = find_data_file(script_dir, ['SMSターゲット.xlsx', 'SMS対象.xlsx', 'sms_targets.xlsx'])
