@@ -210,65 +210,41 @@ else:
 # STEP 4 : SMS本文チェック
 # ════════════════════════════════════════════
 st.markdown('<div class="section-title">STEP 4 ─ SMS本文チェック</div>', unsafe_allow_html=True)
-st.caption('ファイルから自動判定します。結果は手動で変更できます（変更するとこちらが優先されます）。')
+st.caption('各項目の判定方法を選択してください。「自動判別」はレポート生成時に自動で判定します。')
 
-
-# 各項目: (ラベル, checked=OK?, ファイル未読込時デフォルト)
-_ITEMS = [
-    ('店名の記載',         True,  True),   # checked=記載あり=OK
-    ('お客様名の記載',     True,  True),   # checked=記載あり=OK
-    ('チラ見せ度',         False, True),   # checked=出し過ぎなし=OK
-    ('緊急性・限定感',     True,  False),  # checked=あり=OK
-    ('CTAの明確さ',        True,  False),  # checked=明確=OK
-    ('お店の思い・温かみ', True,  True),   # checked=あり=OK
-    ('文章の使い回し感',   False, True),   # checked=使い回しなし=OK
+_SMS_ITEMS = [
+    '店名の記載',
+    'お客様名の記載',
+    'チラ見せ度',
+    '緊急性・限定感',
+    'CTAの明確さ',
+    'お店の思い・温かみ',
+    '文章の使い回し感',
 ]
 
-def _auto_bool(label, default):
-    if label in _auto_checks:
-        c = _auto_checks[label]
-        if c['status'] == 'na':
-            return default
-        return c['status'] == 'ok'
-    return default
+_sms_vals = {}
+for _label in _SMS_ITEMS:
+    _c1, _c2 = st.columns([2, 3])
+    with _c1:
+        st.markdown(f'**{_label}**')
+    with _c2:
+        _sms_vals[_label] = st.radio(
+            _label,
+            options=['自動判別', '有', '無'],
+            index=0,
+            horizontal=True,
+            label_visibility='collapsed',
+            key=f'sms_{_cb_key}_{_label}',
+        )
 
-def _auto_detail(label):
-    return _auto_checks[label]['detail'] if label in _auto_checks else '（ファイルをアップロードすると自動判定します）'
-
-# ── 自動判定結果（変更不可）──
-st.caption('🤖 自動判定結果')
-_au_cols = st.columns(4)
-for _i, (label, pos_check, default) in enumerate(_ITEMS):
-    with _au_cols[_i % 4]:
-        _is_na = label in _auto_checks and _auto_checks[label]['status'] == 'na'
-        if _is_na:
-            st.checkbox(label, value=False, disabled=True,
-                       help='自動判定非対応（下の手動欄で設定してください）',
-                       key=f'au_{_cb_key}_{_i}')
-        else:
-            st.checkbox(label, value=_auto_bool(label, default), disabled=True,
-                       help=_auto_detail(label), key=f'au_{_cb_key}_{_i}')
-
-st.divider()
-
-# ── 手動入力（変更するとこちらが優先）──
-st.caption('✏️ 手動で変更（変更するとこちらが優先されます）')
-_mn_cols = st.columns(4)
-_mn_vals = {}
-for _i, (label, pos_check, default) in enumerate(_ITEMS):
-    with _mn_cols[_i % 4]:
-        _mn_vals[label] = st.checkbox(label, value=_auto_bool(label, default),
-                                      help=_auto_detail(label),
-                                      key=f'mn_{_cb_key}_{_i}')
-
-# checked=OK のルールで内部値に変換
-store_name_status    = '有' if _mn_vals['店名の記載'] else '無'
-customer_name_status = '有' if _mn_vals['お客様名の記載'] else '無'
-warmth_status        = '有' if _mn_vals['お店の思い・温かみ'] else '無'
-tease_status         = '無' if _mn_vals['チラ見せ度'] else '有'
-urgency_status       = '有' if _mn_vals['緊急性・限定感'] else '無'
-cta_status           = '有' if _mn_vals['CTAの明確さ'] else '無'
-reuse_status         = '無' if _mn_vals['文章の使い回し感'] else '有'
+# 自動判別→None、有/無はそのまま渡す（generate_report_core がNone=自動検出として処理）
+store_name_status    = None if _sms_vals['店名の記載']         == '自動判別' else _sms_vals['店名の記載']
+customer_name_status = None if _sms_vals['お客様名の記載']     == '自動判別' else _sms_vals['お客様名の記載']
+warmth_status        = None if _sms_vals['お店の思い・温かみ'] == '自動判別' else _sms_vals['お店の思い・温かみ']
+tease_status         = None if _sms_vals['チラ見せ度']         == '自動判別' else _sms_vals['チラ見せ度']
+urgency_status       = None if _sms_vals['緊急性・限定感']     == '自動判別' else _sms_vals['緊急性・限定感']
+cta_status           = None if _sms_vals['CTAの明確さ']        == '自動判別' else _sms_vals['CTAの明確さ']
+reuse_status         = None if _sms_vals['文章の使い回し感']   == '自動判別' else _sms_vals['文章の使い回し感']
 
 # ════════════════════════════════════════════
 # ボタン行（生成 ＋ リセット）
