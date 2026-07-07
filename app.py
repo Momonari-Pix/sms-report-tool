@@ -155,6 +155,28 @@ with col_c:
         key=f'campaign_{fk}',
     )
 
+# 想定効果測定日数：自動読み取り or 手動入力
+_auto_mdays = st.checkbox(
+    '想定効果測定日数を自動読み取りする',
+    value=True,
+    help='チェックを外すと手動で日数を入力できます',
+    key=f'auto_mdays_{fk}',
+)
+if _auto_mdays:
+    measurement_days = None  # generate_report_core 内で自動計算
+else:
+    _mdays_input = st.text_input(
+        '想定効果測定日数（日）',
+        value='',
+        placeholder='例：7（半角数字）',
+        help='送信日から最終来店日までの日数を手動で入力してください',
+        key=f'mdays_{fk}',
+    )
+    _mdays_valid = bool(_re.fullmatch(r'[0-9]+', _mdays_input)) and 1 <= int(_mdays_input) <= 365 if _mdays_input else False
+    measurement_days = int(_mdays_input) if _mdays_valid else None
+    if _mdays_input and not _mdays_valid:
+        st.caption('⚠️ 半角数字（1〜365）で入力してください')
+
 # ════════════════════════════════════════════
 # STEP 4 : SMS本文チェック
 # ════════════════════════════════════════════
@@ -234,8 +256,6 @@ for _i, (label, pos_check, default) in enumerate(_ITEMS):
                                       key=f'mn_{_cb_key}_{_i}')
 
 # checked=OK のルールで内部値に変換
-# positive items : checked(True)→'有'(ok) / unchecked(False)→'無'(warn)
-# negative items : checked(True)→'無'(ok=問題なし) / unchecked(False)→'有'(warn=問題あり)
 store_name_status    = '有' if _mn_vals['店名の記載'] else '無'
 customer_name_status = '有' if _mn_vals['お客様名の記載'] else '無'
 warmth_status        = '有' if _mn_vals['お店の思い・温かみ'] else '無'
@@ -298,6 +318,7 @@ if generate_btn and xlsx_file is not None:
                     urgency_status        = urgency_status,
                     cta_status            = cta_status,
                     reuse_status          = reuse_status,
+                    measurement_days      = measurement_days,
                 )
 
             import re
