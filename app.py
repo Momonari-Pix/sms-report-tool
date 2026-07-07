@@ -11,7 +11,7 @@ import os
 import glob
 import tempfile
 import streamlit as st
-from generate_report import generate_report_core, load_campaign_targets, analyze_sms, parse_ko_xlsx
+from generate_report import generate_report_core, load_campaign_targets, parse_ko_xlsx
 
 # ── ページ設定 ────────────────────────────────
 st.set_page_config(
@@ -125,10 +125,9 @@ lp_image_file = st.file_uploader(
     key=f'image_{fk}',
 )
 
-# ── 事前解析（XLSX解析：STEP 3,4 で共通利用）──
+# ── 事前解析（XLSX解析：STEP 3 で共通利用）──
 import hashlib as _hashlib
 import re as _re
-_auto_checks: dict = {}
 _auto_hash = 'none'
 _meta_auto: dict = {}
 if xlsx_file is not None:
@@ -142,9 +141,6 @@ if xlsx_file is not None:
             _tmp_path = _tf.name
         _meta_auto, _, _ = parse_ko_xlsx(_tmp_path)
         os.unlink(_tmp_path)
-        if _meta_auto.get('smsText'):
-            _ar = analyze_sms(_meta_auto['smsText'], store_name=_meta_auto.get('store', ''))
-            _auto_checks = {c['label']: c for c in _ar['checks']}
     except Exception:
         pass
 
