@@ -228,7 +228,9 @@ _SMS_ITEMS = [
 ]
 
 _sms_vals = {}
-for _label in _SMS_ITEMS:
+for _idx, _label in enumerate(_SMS_ITEMS):
+    if _idx > 0:
+        st.markdown("<hr style='margin:2px 0;border:none;border-top:1px solid rgba(150,150,150,0.35);'>", unsafe_allow_html=True)
     _c1, _c2, _c3 = st.columns([3, 1, 1])
     with _c1:
         st.markdown(f'**{_label}**')
@@ -248,6 +250,24 @@ urgency_status       = _sms_vals['緊急性・限定感']
 cta_status           = _sms_vals['CTAの明確さ']
 reuse_status         = _sms_vals['文章の使い回し感']
 
+# ── アップロードファイルのID一致チェック（ファイル名の番号で照合）──
+def _extract_file_id(_name):
+    if not _name:
+        return None
+    _stem = os.path.splitext(_name)[0]
+    _nums = _re.findall(r'\d+', _stem)
+    return _nums[-1] if _nums else None
+
+_uploaded_for_id = [
+    ('KO XLSX', xlsx_file),
+    ('Scroll CSV', scroll_file),
+    ('Attention CSV', attention_file),
+    ('LP画像', lp_image_file),
+]
+_file_id_pairs = [(_lbl, _extract_file_id(_f.name)) for _lbl, _f in _uploaded_for_id if _f is not None]
+_id_values = [_fid for _, _fid in _file_id_pairs]
+_id_mismatch = len(_id_values) >= 2 and len(set(_id_values)) > 1
+
 # ════════════════════════════════════════════
 # ボタン行（生成 ＋ リセット）
 # ════════════════════════════════════════════
@@ -257,7 +277,8 @@ with btn_col1:
     _btn_disabled = (
         (xlsx_file is None) or
         (campaign_type is None and bool(campaign_names)) or
-        (machines is None)
+        (machines is None) or
+        _id_mismatch
     )
     generate_btn = st.button('🚀 レポートを生成する', type='primary', disabled=_btn_disabled)
 with btn_col2:
@@ -265,6 +286,9 @@ with btn_col2:
 
 if xlsx_file is None:
     st.info('KO XLSX をアップロードするとレポートを生成できます。')
+elif _id_mismatch:
+    _detail = ' / '.join(f'{_lbl}: {_fid or "ID不明"}' for _lbl, _fid in _file_id_pairs)
+    st.error(f'⚠️ アップロードされたファイルのID番号が一致していません。同じ送信IDのファイルを揃えてください。（{_detail}）')
 elif campaign_type is None and bool(campaign_names):
     st.warning('キャンペーンタイプを選択してください。')
 
