@@ -71,6 +71,11 @@ st.markdown("""
   .stButton > button { width: 100%; height: 3rem; font-size: 1rem; font-weight: 700; }
   .section-title { font-size: 0.85rem; font-weight: 700; color: #64748b;
                    text-transform: uppercase; letter-spacing: .05em; margin: 1.5rem 0 .5rem; }
+  [data-testid="stFileUploaderDropzone"] {
+    display: flex; flex-direction: row; align-items: center;
+    padding: 0.5rem 1rem; gap: 1rem;
+  }
+  [data-testid="stFileUploaderDropzone"] small { margin: 0; white-space: nowrap; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -210,7 +215,7 @@ else:
 # STEP 4 : SMS本文チェック
 # ════════════════════════════════════════════
 st.markdown('<div class="section-title">STEP 4 ─ SMS本文チェック</div>', unsafe_allow_html=True)
-st.caption('各項目の判定方法を選択してください。「自動判別」はレポート生成時に自動で判定します。')
+st.caption('手動で上書きしたい項目のみチェックしてください。未チェックはレポート生成時に自動判別します。')
 
 _SMS_ITEMS = [
     '店名の記載',
@@ -224,27 +229,24 @@ _SMS_ITEMS = [
 
 _sms_vals = {}
 for _label in _SMS_ITEMS:
-    _c1, _c2 = st.columns([2, 3])
+    _c1, _c2, _c3 = st.columns([3, 1, 1])
     with _c1:
         st.markdown(f'**{_label}**')
     with _c2:
-        _sms_vals[_label] = st.radio(
-            _label,
-            options=['自動判別', '有', '無'],
-            index=0,
-            horizontal=True,
-            label_visibility='collapsed',
-            key=f'sms_{_cb_key}_{_label}',
-        )
+        _has = st.checkbox('有', key=f'sms_has_{_cb_key}_{_label}')
+    with _c3:
+        _none = st.checkbox('無', key=f'sms_none_{_cb_key}_{_label}')
+    # 有・無どちらかがチェックされていれば優先、両方未チェック＝自動判別（None）
+    _sms_vals[_label] = '有' if _has else ('無' if _none else None)
 
-# 自動判別→None、有/無はそのまま渡す（generate_report_core がNone=自動検出として処理）
-store_name_status    = None if _sms_vals['店名の記載']         == '自動判別' else _sms_vals['店名の記載']
-customer_name_status = None if _sms_vals['お客様名の記載']     == '自動判別' else _sms_vals['お客様名の記載']
-warmth_status        = None if _sms_vals['お店の思い・温かみ'] == '自動判別' else _sms_vals['お店の思い・温かみ']
-tease_status         = None if _sms_vals['チラ見せ度']         == '自動判別' else _sms_vals['チラ見せ度']
-urgency_status       = None if _sms_vals['緊急性・限定感']     == '自動判別' else _sms_vals['緊急性・限定感']
-cta_status           = None if _sms_vals['CTAの明確さ']        == '自動判別' else _sms_vals['CTAの明確さ']
-reuse_status         = None if _sms_vals['文章の使い回し感']   == '自動判別' else _sms_vals['文章の使い回し感']
+# None=自動判別、有/無はそのまま渡す（generate_report_core がNone=自動検出として処理）
+store_name_status    = _sms_vals['店名の記載']
+customer_name_status = _sms_vals['お客様名の記載']
+warmth_status        = _sms_vals['お店の思い・温かみ']
+tease_status         = _sms_vals['チラ見せ度']
+urgency_status       = _sms_vals['緊急性・限定感']
+cta_status           = _sms_vals['CTAの明確さ']
+reuse_status         = _sms_vals['文章の使い回し感']
 
 # ════════════════════════════════════════════
 # ボタン行（生成 ＋ リセット）
