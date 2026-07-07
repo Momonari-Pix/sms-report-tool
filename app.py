@@ -125,6 +125,31 @@ lp_image_file = st.file_uploader(
     key=f'image_{fk}',
 )
 
+# ── 事前解析（XLSX解析：STEP 3,4 で共通利用）──
+import hashlib as _hashlib
+import re as _re
+_auto_checks: dict = {}
+_auto_hash = 'none'
+_meta_auto: dict = {}
+if xlsx_file is not None:
+    try:
+        _xlsx_bytes = xlsx_file.read()
+        xlsx_file.seek(0)
+        _auto_hash = _hashlib.md5(_xlsx_bytes).hexdigest()[:8]
+        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as _tf:
+            _tf.write(_xlsx_bytes)
+            _tf.flush()
+            _tmp_path = _tf.name
+        _meta_auto, _, _ = parse_ko_xlsx(_tmp_path)
+        os.unlink(_tmp_path)
+        if _meta_auto.get('smsText'):
+            _ar = analyze_sms(_meta_auto['smsText'], store_name=_meta_auto.get('store', ''))
+            _auto_checks = {c['label']: c for c in _ar['checks']}
+    except Exception:
+        pass
+
+_cb_key = f'{fk}_{_auto_hash}'
+
 # ════════════════════════════════════════════
 # STEP 3 : 入力項目
 # ════════════════════════════════════════════
@@ -159,18 +184,26 @@ with col_c:
 _auto_mdays = st.checkbox(
     '想定効果測定日数を自動読み取りする',
     value=True,
-    help='チェックを外すと手動で日数を入力できます',
     key=f'auto_mdays_{fk}',
 )
+st.caption('チェックを外すと手動で変更できます。')
+_auto_mdays_val = _meta_auto.get('measurementDays', 0)
+_mdays_display  = str(_auto_mdays_val) if _auto_mdays_val > 0 else ''
 if _auto_mdays:
-    measurement_days = None  # generate_report_core 内で自動計算
+    st.text_input(
+        '想定効果測定日数（日）',
+        value=_mdays_display,
+        placeholder='ファイルをアップロードすると自動計算されます',
+        disabled=True,
+        key=f'mdays_auto_{_cb_key}',
+    )
+    measurement_days = None
 else:
     _mdays_input = st.text_input(
         '想定効果測定日数（日）',
-        value='',
+        value=_mdays_display,
         placeholder='例：7（半角数字）',
-        help='送信日から最終来店日までの日数を手動で入力してください',
-        key=f'mdays_{fk}',
+        key=f'mdays_manual_{_cb_key}',
     )
     _mdays_valid = bool(_re.fullmatch(r'[0-9]+', _mdays_input)) and 1 <= int(_mdays_input) <= 365 if _mdays_input else False
     measurement_days = int(_mdays_input) if _mdays_valid else None
@@ -183,29 +216,6 @@ else:
 st.markdown('<div class="section-title">STEP 4 ─ SMS本文チェック</div>', unsafe_allow_html=True)
 st.caption('ファイルから自動判定します。結果は手動で変更できます（変更するとこちらが優先されます）。')
 
-# ── 自動判定を実行（ファイル変更時に再実行）──
-import hashlib as _hashlib
-_auto_checks: dict = {}
-_auto_hash = 'none'
-if xlsx_file is not None:
-    try:
-        _xlsx_bytes = xlsx_file.read()
-        xlsx_file.seek(0)
-        _auto_hash = _hashlib.md5(_xlsx_bytes).hexdigest()[:8]
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as _tf:
-            _tf.write(_xlsx_bytes)
-            _tf.flush()
-            _tmp_path = _tf.name
-        _meta_auto, _, _ = parse_ko_xlsx(_tmp_path)
-        os.unlink(_tmp_path)
-        if _meta_auto.get('smsText'):
-            _ar = analyze_sms(_meta_auto['smsText'], store_name=_meta_auto.get('store', ''))
-            _auto_checks = {c['label']: c for c in _ar['checks']}
-    except Exception:
-        pass
-
-# ファイルが変わったらウィジェットをリセットするキー
-_cb_key = f'{fk}_{_auto_hash}'
 
 # 各項目: (ラベル, checked=OK?, ファイル未読込時デフォルト)
 _ITEMS = [
