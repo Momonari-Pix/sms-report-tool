@@ -82,8 +82,9 @@ st.markdown("""
 [data-testid="stBaseButton-primary"] p { color:#06241b !important; }
 .app-header { display:flex; align-items:center; gap:14px; margin:0 0 0.4rem; }
 .app-header-icon { width:40px; height:40px; border-radius:11px; background:#12261d; display:flex; align-items:center; justify-content:center; color:#34d399; flex:0 0 auto; }
-.app-header-title { font-size:1.35rem; font-weight:700; color:#f4f4f5; line-height:1.2; }
+.app-header-title { font-size:1.3rem; font-weight:700; color:#f4f4f5; line-height:1.7; padding:2px 0; }
 .app-header-sub { font-size:12px; color:#8a8a90; letter-spacing:0.3px; }
+.hint-emerald { background:rgba(52,211,153,0.10); border:1px solid rgba(52,211,153,0.35); color:#34d399; border-radius:10px; padding:10px 14px; font-size:13px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -313,7 +314,7 @@ generate_btn = st.button('レポートを生成する', type='primary', disabled
 st.button('リセット', on_click=reset_form, use_container_width=True, icon=':material/refresh:')
 
 if xlsx_file is None:
-    st.info('KO XLSX をアップロードするとレポートを生成できます。')
+    st.markdown('<div class="hint-emerald">KO XLSX をアップロードするとレポートを生成できます。</div>', unsafe_allow_html=True)
 elif _id_mismatch:
     _detail = ' / '.join(f'{_lbl}: {_fid or "ID不明"}' for _lbl, _fid in _file_id_pairs)
     st.warning(f'アップロードされたファイルのID番号が一致していません。同じ送信IDのファイルを揃えてください。（{_detail}）')
