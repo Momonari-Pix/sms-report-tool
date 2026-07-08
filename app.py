@@ -16,7 +16,7 @@ from generate_report import generate_report_core, load_campaign_targets, parse_k
 # ── ページ設定 ────────────────────────────────
 st.set_page_config(
     page_title='SMS分析レポート 生成ツール',
-    page_icon='📊',
+    page_icon='',
     layout='centered',
 )
 
@@ -76,24 +76,35 @@ st.markdown("""
     padding: 0.5rem 1rem; gap: 1rem;
   }
   [data-testid="stFileUploaderDropzone"] small { margin: 0; white-space: nowrap; }
+.stButton > button[kind="primary"],[data-testid="stBaseButton-primary"] { color:#06241b !important; width:100% !important; }
+[data-testid="stBaseButton-primary"] p { color:#06241b !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── Onyx Emerald テーマ微調整 CSS ──
 st.markdown("""
 <style>
-.section-title { color:#34d399; font-size:12px; font-weight:500; letter-spacing:1.5px; margin:1.4rem 0 0.45rem; }
-[data-testid="stFileUploaderDropzone"] { background:#141416; border:1px dashed #2c2c30; border-radius:12px; transition:border-color .15s ease; }
+html, body, .stApp { font-family:"Hiragino Maru Gothic ProN","Meiryo","メイリオ","Rounded Mplus 1c",system-ui,sans-serif !important; }
+.stApp h1,.stApp h2,.stApp h3,.stApp p,.stApp label,.stMarkdown,.stButton button,[data-testid="stDownloadButton"] button,input,textarea,select,.section-title { font-family:inherit !important; }
+.block-container,[data-testid="stMainBlockContainer"] { padding-top:2rem !important; padding-bottom:2.5rem !important; max-width:820px; }
+[data-testid="stVerticalBlock"] { gap:0.5rem !important; }
+hr { margin:0.5rem 0 !important; border-color:#242427 !important; }
+.stApp h1 { font-size:1.5rem !important; font-weight:500 !important; margin-bottom:0.2rem !important; }
+.section-title { color:#34d399; font-size:12px; font-weight:500; letter-spacing:1.5px; margin:1rem 0 0.3rem; }
+[data-testid="stFileUploaderDropzone"] { background:#141416; border:1px dashed #2c2c30; border-radius:12px; padding:8px 14px !important; min-height:0 !important; align-items:center !important; }
 [data-testid="stFileUploaderDropzone"]:hover { border-color:#34d399; }
-[data-testid="stTextInput"] input, [data-testid="stNumberInput"] input { background:#141416 !important; border-radius:10px !important; border:1px solid #242427 !important; }
+[data-testid="stFileUploaderDropzone"] svg { width:18px !important; height:18px !important; }
+[data-testid="stFileUploaderDropzoneInstructions"] > div { display:flex !important; flex-direction:row !important; align-items:center !important; gap:10px !important; }
+[data-testid="stFileUploaderDropzoneInstructions"] span { font-size:11px !important; }
+[data-testid="stFileUploaderDropzoneInstructions"] small { font-size:10px !important; }
+[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input { background:#141416 !important; border-radius:10px !important; border:1px solid #242427 !important; }
 [data-baseweb="select"] > div { background:#141416 !important; border-radius:10px !important; border-color:#242427 !important; }
-.stButton > button, [data-testid="stDownloadButton"] > button { border-radius:10px; font-weight:500; }
-hr { border-color:#242427 !important; }
+.stButton > button,[data-testid="stDownloadButton"] > button { border-radius:10px; font-weight:500; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── タイトル ──────────────────────────────────
-st.title('📊 SMS分析レポート 生成ツール')
+st.title('SMS分析レポート 生成ツール')
 st.caption('必要なファイルをアップロードして「レポート生成」を押してください。')
 st.divider()
 
@@ -285,23 +296,20 @@ _id_mismatch = len(_id_values) >= 2 and len(set(_id_values)) > 1
 # ボタン行（生成 ＋ リセット）
 # ════════════════════════════════════════════
 st.divider()
-btn_col1, btn_col2 = st.columns([3, 1])
-with btn_col1:
-    _btn_disabled = (
-        (xlsx_file is None) or
-        (campaign_type is None and bool(campaign_names)) or
-        (machines is None) or
-        _id_mismatch
-    )
-    generate_btn = st.button('🚀 レポートを生成する', type='primary', disabled=_btn_disabled)
-with btn_col2:
-    st.button('🔄 リセット', on_click=reset_form)
+_btn_disabled = (
+    (xlsx_file is None) or
+    (campaign_type is None and bool(campaign_names)) or
+    (machines is None) or
+    _id_mismatch
+)
+generate_btn = st.button('レポートを生成する', type='primary', disabled=_btn_disabled, use_container_width=True, icon=':material/bolt:')
+st.button('リセット', on_click=reset_form, use_container_width=True, icon=':material/refresh:')
 
 if xlsx_file is None:
     st.info('KO XLSX をアップロードするとレポートを生成できます。')
 elif _id_mismatch:
     _detail = ' / '.join(f'{_lbl}: {_fid or "ID不明"}' for _lbl, _fid in _file_id_pairs)
-    st.error(f'⚠️ アップロードされたファイルのID番号が一致していません。同じ送信IDのファイルを揃えてください。（{_detail}）')
+    st.warning(f'アップロードされたファイルのID番号が一致していません。同じ送信IDのファイルを揃えてください。（{_detail}）')
 elif campaign_type is None and bool(campaign_names):
     st.warning('キャンペーンタイプを選択してください。')
 
@@ -352,7 +360,7 @@ if generate_btn and xlsx_file is not None:
 
             st.success(f'✅ レポート生成完了！（{len(html) // 1024} KB）')
             st.download_button(
-                label     = f'📥 {filename} をダウンロード',
+                label     = f'{filename} をダウンロード',
                 data      = html.encode('utf-8'),
                 file_name = filename,
                 mime      = 'text/html',
