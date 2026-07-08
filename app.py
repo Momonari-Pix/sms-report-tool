@@ -29,8 +29,10 @@ def check_password():
     if st.session_state.get('authenticated'):
         return
     st.title('🔐 ログイン')
-    pw = st.text_input('パスワード', type='password')
-    if st.button('ログイン'):
+    with st.form('login_form'):
+        pw = st.text_input('パスワード', type='password')
+        _submitted = st.form_submit_button('ログイン')
+    if _submitted:
         if pw == correct:
             st.session_state['authenticated'] = True
             st.rerun()
