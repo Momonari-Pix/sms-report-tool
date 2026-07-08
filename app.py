@@ -80,19 +80,24 @@ st.markdown("""
   [data-testid="stFileUploaderDropzone"] small { margin: 0; white-space: nowrap; }
 .stButton > button[kind="primary"],[data-testid="stBaseButton-primary"] { color:#06241b !important; width:100% !important; }
 [data-testid="stBaseButton-primary"] p { color:#06241b !important; }
+.app-header { display:flex; align-items:center; gap:14px; margin:0 0 0.4rem; }
+.app-header-icon { width:40px; height:40px; border-radius:11px; background:#12261d; display:flex; align-items:center; justify-content:center; color:#34d399; flex:0 0 auto; }
+.app-header-title { font-size:1.35rem; font-weight:700; color:#f4f4f5; line-height:1.2; }
+.app-header-sub { font-size:12px; color:#8a8a90; letter-spacing:0.3px; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── Onyx Emerald テーマ微調整 CSS ──
 st.markdown("""
 <style>
-html, body, .stApp { font-family:"Hiragino Maru Gothic ProN","Meiryo","メイリオ","Rounded Mplus 1c",system-ui,sans-serif !important; }
+@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap');
+html, body, .stApp { font-family:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Meiryo","メイリオ","Rounded Mplus 1c",system-ui,sans-serif !important; }
 .stApp h1,.stApp h2,.stApp h3,.stApp p,.stApp label,.stMarkdown,.stButton button,[data-testid="stDownloadButton"] button,input,textarea,select,.section-title { font-family:inherit !important; }
 .block-container,[data-testid="stMainBlockContainer"] { padding-top:2rem !important; padding-bottom:2.5rem !important; max-width:820px; }
 [data-testid="stVerticalBlock"] { gap:0.5rem !important; }
 hr { margin:0.5rem 0 !important; border-color:#242427 !important; }
 .stApp h1 { font-size:1.5rem !important; font-weight:500 !important; margin-bottom:0.2rem !important; }
-.section-title { color:#34d399; font-size:12px; font-weight:500; letter-spacing:1.5px; margin:1rem 0 0.3rem; }
+.section-title { color:#34d399; font-size:14px; font-weight:500; letter-spacing:1.5px; margin:1rem 0 0.3rem; }
 [data-testid="stFileUploaderDropzone"] { background:#141416; border:1px dashed #2c2c30; border-radius:12px; padding:8px 14px !important; min-height:0 !important; align-items:center !important; }
 [data-testid="stFileUploaderDropzone"]:hover { border-color:#34d399; }
 [data-testid="stFileUploaderDropzone"] svg { width:18px !important; height:18px !important; }
@@ -106,7 +111,7 @@ hr { margin:0.5rem 0 !important; border-color:#242427 !important; }
 """, unsafe_allow_html=True)
 
 # ── タイトル ──────────────────────────────────
-st.title('SMS分析レポート 生成ツール')
+st.markdown('''<div class="app-header"><div class="app-header-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg></div><div><div class="app-header-title">SMS分析レポート 生成ツール</div><div class="app-header-sub">upload · analyze · report</div></div></div>''', unsafe_allow_html=True)
 st.caption('必要なファイルをアップロードして「レポート生成」を押してください。')
 st.divider()
 
