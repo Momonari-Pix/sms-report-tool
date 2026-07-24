@@ -55,7 +55,7 @@ def find_target_file():
             return p
     return None
 
-TARGET_FILE = os.path.join(SCRIPT_DIR, 'sms_targets.xlsx') if os.path.exists(os.path.join(SCRIPT_DIR, 'sms_targets.xlsx')) else find_target_file()
+TARGET_FILE = os.path.join(SCRIPT_DIR, 'SMSターゲット.xlsx') if os.path.exists(os.path.join(SCRIPT_DIR, 'SMSターゲット.xlsx')) else find_target_file()
 
 # ── フォームリセット用カウンター初期化 ──────────
 if 'form_key' not in st.session_state:
