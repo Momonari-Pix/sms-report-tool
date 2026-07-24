@@ -1006,7 +1006,7 @@ def inject_segments(html, segments):
     return re.sub(pattern, lambda m: replacement, html, flags=re.DOTALL)
 
 def inject_unsent_segments(html, segments, member_estimates, visit_rate_data, measurement_days,
-                           max_segment=None, birthday_mode=False):
+                           max_segment=None, birthday_mode=False, campaign_type=None, machines=None):
     """設置台数ベースの推定会員数と送信済み数から未送信層を計算してDATAに注入。
     max_segment: この離反期間を超えるセグメントはシミュレーションに含めない
     birthday_mode: True の場合、追加対象人数を 1/12 に補正（誕生日月限定施策）
@@ -1023,6 +1023,14 @@ def inject_unsent_segments(html, segments, member_estimates, visit_rate_data, me
         if label == '3年以上': continue
         if i > max_idx: continue  # キャンペーン種別の最大対象期間を超えたらスキップ
         est_total = member_estimates.get(label, 0)
+        # VIP会員・入会サンクスは1ヶ月未満のみ設置台数ベースで算出
+        if label == '1ヶ月未満' and machines:
+            if campaign_type and 'VIP' in campaign_type:
+                est_total = round(machines * 0.20)
+            elif campaign_type and 'サンクス' in campaign_type:
+                est_total = round(machines * 0.10)
+        # SMSオプトイン率を考慮し全ての推定を全国データの70%に補正
+        est_total = round(est_total * 0.70)
         seg = next((s for s in segments if s['label'] == label), None)
         sent_count = seg['sent'] if seg else 0
         unsent_count = max(0, est_total - sent_count)
@@ -1162,7 +1170,8 @@ def generate_report_core(
         member_estimates = load_member_estimates(member_file, machines)
         html = inject_unsent_segments(html, segments, member_estimates, visit_rate_data,
                                       meta.get('measurementDays', 0),
-                                      max_segment=max_segment, birthday_mode=birthday_mode)
+                                      max_segment=max_segment, birthday_mode=birthday_mode,
+                                      campaign_type=campaign_type, machines=machines)
         if campaign_type:
             html = inject_campaign_meta(html, campaign_type, max_segment or '')
 
@@ -1362,7 +1371,8 @@ def main():
         member_estimates = load_member_estimates(member_file, args.machines)
         html = inject_unsent_segments(html, segments, member_estimates, visit_rate_data,
                                       meta.get('measurementDays', 0),
-                                      max_segment=max_segment, birthday_mode=birthday_mode)
+                                      max_segment=max_segment, birthday_mode=birthday_mode,
+                                      campaign_type=args.campaign_type, machines=args.machines)
         print(f'   → 未送信層シミュレーションデータを注入完了')
         if args.campaign_type:
             html = inject_campaign_meta(html, args.campaign_type, max_segment or '')
